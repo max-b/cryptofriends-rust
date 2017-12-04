@@ -4,6 +4,10 @@ extern crate base64;
 use std::u8;
 use std::collections::HashMap;
 use std::ascii::AsciiExt;
+use std::io::BufReader;
+use std::io::prelude::*;
+use std::path::PathBuf;
+use std::fs::File;
 use self::itertools::Itertools;
 use self::base64::encode;
 
@@ -56,7 +60,7 @@ pub fn xor_hex_strings(hex1: &str, hex2: &str) -> String {
     bytes_to_hex(&bytes)
 }
 
-pub fn word_scorer(hex: &str) -> String {
+pub fn word_scorer(hex: &str) -> (String, i64) {
     let buf = hex_to_bytes(hex);
 
     let letter_range = 0..26;
@@ -71,9 +75,9 @@ pub fn word_scorer(hex: &str) -> String {
 
         let score = result.iter()
                           .fold(0, |acc, &byte| {
-                              let byte_as_char = (byte as char).to_ascii_uppercase();
+                              let byte_as_char = (byte as char).to_ascii_lowercase();
                               let score = match frequency_score_map.get(&byte_as_char) {
-                                  None => 0,
+                                  None => -100,
                                   Some(i) => *i
                               };
                               acc + score
@@ -88,7 +92,32 @@ pub fn word_scorer(hex: &str) -> String {
     let plaintext_bytes = single_xor(&buf, best_key);
     let plaintext_char_buffer: Vec<char> = plaintext_bytes.iter().map(|&x| x as char).collect();
 
-    format!("{}", plaintext_char_buffer.iter().format(""))
+    (format!("{}", plaintext_char_buffer.iter().format("")), best_score)
+}
+
+pub fn detect_single_char_xor() -> String {
+    let mut strings_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    strings_path.push("src");
+    strings_path.push("set_1");
+    strings_path.push("4.txt");
+
+    let strings_file = File::open(&strings_path).expect("Error reading strings file.");
+
+    let strings_file_as_reader = BufReader::new(strings_file);
+
+    let mut best_score = 0;
+    let mut best_decoded = String::from("");
+
+    for line in strings_file_as_reader.lines() {
+        let (decoded, score) = word_scorer(&line.expect("error reading line"));
+        
+        if score > best_score {
+            best_score = score;
+            best_decoded = decoded;
+        }
+    }
+
+    best_decoded
 }
 
 #[cfg(test)]
@@ -115,8 +144,17 @@ mod tests {
     #[test]
     fn challenge_3() {
         let hex = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736";
-        let decode_result = word_scorer(hex);
+        let (decode_result, _) = word_scorer(hex);
         let decoded_answer = "Cooking MC's like a pound of bacon";
         assert_eq!(decode_result, decoded_answer);
     }
+
+    #[test]
+    fn challenge_4() {
+        let xored_decrypt = detect_single_char_xor();
+        let decoded_answer = "Now that the party is jumping\n";
+        assert_eq!(xored_decrypt, decoded_answer);
+    }
+
+
 }
