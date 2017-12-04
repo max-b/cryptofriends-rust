@@ -95,6 +95,18 @@ pub fn word_scorer(hex: &str) -> (String, i64) {
     (format!("{}", plaintext_char_buffer.iter().format("")), best_score)
 }
 
+pub fn repeating_key_xor(buf: &[u8], key: &[u8]) -> Vec<u8> {
+    let mut result: Vec<u8> = Vec::new();
+
+    let mut key_iter = key.into_iter().cycle();
+
+    for i in buf.into_iter() {
+        result.push(key_iter.next().unwrap() ^ i);
+    }
+
+    result
+}
+
 pub fn detect_single_char_xor() -> String {
     let mut strings_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     strings_path.push("src");
@@ -154,6 +166,16 @@ mod tests {
         let xored_decrypt = detect_single_char_xor();
         let decoded_answer = "Now that the party is jumping\n";
         assert_eq!(xored_decrypt, decoded_answer);
+    }
+
+
+    #[test]
+    fn challenge_5() {
+        let plaintext = "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
+        let repeated_xor_bytes = repeating_key_xor(&(plaintext.as_bytes()), &(String::from("ICE").as_bytes())); 
+        let repeated_xor_string = bytes_to_hex(&repeated_xor_bytes);
+        let encrypted_answer = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f";
+        assert_eq!(repeated_xor_string, encrypted_answer);
     }
 
 
