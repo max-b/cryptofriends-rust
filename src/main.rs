@@ -2,6 +2,6 @@
 extern crate cryptofriends;
 
 fn main() {
-    let test_1 = cryptofriends::set_1::hex_to_base64("49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d");
-    println!("set 1 challenge 1: {}", test_1);
+    let decoded = cryptofriends::set_1::word_scorer("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736");
+    println!("decoded = {}", decoded);
 }
