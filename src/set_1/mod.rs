@@ -1,161 +1,11 @@
-extern crate itertools;
-extern crate base64;
-
 use std::u8;
+use std::f64;
 use std::str;
-use std::collections::HashMap;
-use std::ascii::AsciiExt;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::fs::File;
-use self::itertools::Itertools;
-use self::base64::{encode, decode};
-
-fn hex_to_bytes(hex: &str) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::new();
-    for i in 0..(hex.len()/2) {
-        let hex_string = &hex[(i*2)..(i*2)+2];
-        let res = u8::from_str_radix(hex_string, 16).expect(&format!("Problem with hex {}", hex_string));
-        bytes.push(res);
-    }
-
-    bytes
-}
-
-fn base64_to_bytes(string: &str) -> Vec<u8> {
-    decode(&string).expect("error decoding base64 string")
-}
-
-pub fn hex_to_base64(hex: &str) -> String {
-    let bytes: Vec<u8> = hex_to_bytes(hex);
-    encode(&bytes)
-}
-
-fn xor(buf1: &Vec<u8>, buf2: &Vec<u8>) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::new();
-    for i in 0..buf1.len() {
-        bytes.push(buf1[i] ^ buf2[i]);
-    }
-
-    bytes
-}
-
-fn single_xor(buf: &[u8], key: u8) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::new();
-    for i in buf.into_iter() {
-        bytes.push(i ^ key);
-    }
-
-    bytes
-}
-
-fn bytes_to_hex(buf: &Vec<u8>) -> String {
-    let result = buf.iter().format("");
-
-    format!("{:02x}", result)
-}
-
-pub fn xor_hex_strings(hex1: &str, hex2: &str) -> String {
-    let buf1 = hex_to_bytes(hex1);
-    let buf2 = hex_to_bytes(hex2);
-
-    let bytes = xor(&buf1, &buf2);
-
-    bytes_to_hex(&bytes)
-}
-
-fn get_chi_squared(buf: &[u8]) -> f64 {
-
-    let english_freq = vec![
-        0.0651738, 0.0124248, 0.0217339, 0.0349835,  //'A', 'B', 'C', 'D',...
-        0.1041442, 0.0197881, 0.0158610, 0.0492888,
-        0.0558094, 0.0009033, 0.0050529, 0.0331490,
-        0.0202124, 0.0564513, 0.0596302, 0.0137645,
-        0.0008606, 0.0497563, 0.0515760, 0.0729357,
-        0.0225134, 0.0082903, 0.0171272, 0.0013692,
-        0.0145984, 0.0007836, 0.1918182,  //'Y', 'Z', ' '
-    ];
-
-    let ordered_letters = String::from("abcdefghijklmnopqrstuvwxyz ");
-    let frequency_score_map: HashMap<_, _> = ordered_letters.chars().zip(english_freq.iter()).collect();
-
-    let mut count: HashMap<char, usize> = HashMap::new();
-
-    for &byte in buf.into_iter() {
-
-        let byte_as_char = (byte as char).to_ascii_lowercase();
-
-        let i = count.entry(byte_as_char).or_insert(0);
-        *i += 1;
-    }
-
-    let mut chi2 = 0.0;
-    let len = buf.len();
-
-    for (letter, occurences) in &count {
-        let expected = match frequency_score_map.get(&letter) {
-            None => 0.0008,
-            Some(frequency) => len as f64 * *frequency,
-        };
-
-        let difference = *occurences as f64 - expected;
-
-        if expected > 0.0 {
-            chi2 += (difference * difference) / expected as f64;
-        }
-    }
-
-    chi2
-}
-
-fn word_scorer_bytes(buf: &[u8]) -> (String, f64, u8) {
-
-    let mut best_key = 0;
-    let mut best_score = 99999.0;
-
-    for i in 0..255 {
-        let result = &single_xor(&buf, i)[..];
-
-        match str::from_utf8(&result) {
-            Ok(string) => {
-
-                if string.is_ascii() {
-
-                    let score = get_chi_squared(result);
-
-                    if score < best_score {
-                        best_score = score;
-                        best_key = i;
-                    }
-                }
-            },
-            Err(_) => {},
-        }
-    }
-
-    let plaintext_bytes = single_xor(&buf, best_key);
-    let plaintext_char_buffer: Vec<char> = plaintext_bytes.iter().map(|&x| x as char).collect();
-
-    (format!("{}", plaintext_char_buffer.iter().format("")), best_score, best_key)
-}
-
-pub fn word_scorer(hex: &str) -> (String, f64, u8) {
-    let buf = hex_to_bytes(hex);
-    word_scorer_bytes(&buf[..])
-}
-
-pub fn repeating_key_xor(buf: &[u8], key: &[u8]) -> Vec<u8> {
-    let mut result: Vec<u8> = Vec::new();
-
-    let mut key_iter = key.into_iter().cycle();
-
-    for i in buf.into_iter() {
-        result.push(key_iter.next().unwrap() ^ i);
-    }
-
-    result
-}
+use ::utils;
 
 pub fn detect_single_char_xor() -> String {
     let mut strings_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -167,47 +17,34 @@ pub fn detect_single_char_xor() -> String {
 
     let strings_file_as_reader = BufReader::new(strings_file);
 
-    let mut best_score = 99999.0;
+    let mut best_score = None;
     let mut best_decoded = String::from("");
 
     for line in strings_file_as_reader.lines() {
-        let (decoded, score, _) = word_scorer(&line.expect("error reading line"));
+        match utils::word_scorer_string(&line.expect("error reading line")) {
+            Ok((decoded, score, _)) => {
 
-        if score < best_score {
-            best_score = score;
-            best_decoded = decoded;
+                if let Some(best) = best_score {
+                    if score < best{
+                        best_score = Some(score);
+                        best_decoded = decoded;
+                    }
+                } else {
+                    best_score = Some(score);
+                    best_decoded = decoded;
+                }
+            },
+            Err(_) => {},
         }
     }
 
-    best_decoded
-}
 
-pub fn hamming_distance_strings(str1: &str, str2: &str) -> usize {
-    let buf1 = str1.as_bytes();
-    let buf2 = str2.as_bytes();
-
-    hamming_distance_bytes(&buf1, &buf2)
-}
-
-fn hamming_distance_bytes(buf1: &[u8], buf2: &[u8]) -> usize {
-    assert_eq!(buf1.len(), buf2.len());
-
-    let buf1 = Vec::from(buf1);
-    let buf2 = Vec::from(buf2);
-
-    let xor_result = xor(&buf1, &buf2);
-
-    let mut dist = 0;
-
-    for &i in xor_result.iter() {
-        let mut val = i;
-        while val > 0 {
-            dist += 1;
-            val = val & (val - 1);
-        }
+    match best_score {
+        None => panic!("Word scorer wasn't able to find a single valid xored string"),
+        Some(_) => {
+            best_decoded
+        },
     }
-
-    dist
 }
 
 pub fn break_repeating_xor() -> String {
@@ -217,14 +54,10 @@ pub fn break_repeating_xor() -> String {
     ciphertext_path.push("set_1");
     ciphertext_path.push("6.txt");
 
-    let mut goal_keysize = 99999;
-    let mut goal_dist = 99999.0;
+    let mut goal_keysize = None;
+    let mut goal_dist = f64::INFINITY;
 
-    let mut ciphertext_file = File::open(&ciphertext_path).expect("Error opening ciphertext file.");
-    let mut ciphertext_buffer = Vec::new();
-    ciphertext_file.read_to_end(&mut ciphertext_buffer).expect("Error reading ciphertext file.");
-
-    let base64_decoded_ciphertext = base64_to_bytes(&str::from_utf8(&ciphertext_buffer).expect("Error reading string from_utf8 bytes").replace('\n', ""));
+    let base64_decoded_ciphertext = utils::read_base64_file_as_bytes(&ciphertext_path);
 
     for keysize in 2..40 {
 
@@ -233,46 +66,56 @@ pub fn break_repeating_xor() -> String {
         let chunk3 = &base64_decoded_ciphertext[keysize*2..keysize*3];
         let chunk4 = &base64_decoded_ciphertext[keysize*3..keysize*4];
 
-        let dist_1_2 = hamming_distance_bytes(&chunk1, &chunk2);
-        let dist_1_3 = hamming_distance_bytes(&chunk1, &chunk3);
-        let dist_1_4 = hamming_distance_bytes(&chunk1, &chunk4);
-        let dist_2_3 = hamming_distance_bytes(&chunk2, &chunk3);
-        let dist_2_4 = hamming_distance_bytes(&chunk2, &chunk4);
-        let dist_3_4 = hamming_distance_bytes(&chunk3, &chunk4);
+        let dist_1_2 = utils::hamming_distance_bytes(&chunk1, &chunk2);
+        let dist_1_3 = utils::hamming_distance_bytes(&chunk1, &chunk3);
+        let dist_1_4 = utils::hamming_distance_bytes(&chunk1, &chunk4);
+        let dist_2_3 = utils::hamming_distance_bytes(&chunk2, &chunk3);
+        let dist_2_4 = utils::hamming_distance_bytes(&chunk2, &chunk4);
+        let dist_3_4 = utils::hamming_distance_bytes(&chunk3, &chunk4);
 
         // TODO: all of this could probably be made nicer with a collection/combination
         let average_dist: f64 = (dist_1_2 + dist_1_3 + dist_1_4 + dist_2_3 + dist_2_4 + dist_3_4) as f64 / (6.0 * keysize as f64);
 
-        if average_dist < goal_dist {
-            goal_dist = average_dist;
-            goal_keysize = keysize;
-        }
-    }
-
-    let mut transposed: Vec<Vec<u8>> = vec![vec![]; goal_keysize];
-    for slice in base64_decoded_ciphertext.chunks(goal_keysize) {
-        if slice.len() == goal_keysize {
-            for i in 0..slice.len() {
-                let item = slice[i];
-                transposed[i].push(item);
+        if let Some(_) = goal_keysize {
+            if average_dist < goal_dist {
+                goal_dist = average_dist;
+                goal_keysize = Some(keysize);
             }
+        } else {
+            goal_dist = average_dist;
+            goal_keysize = Some(keysize);
         }
     }
 
-    let mut key_vector: Vec<u8> = Vec::new();
+    match goal_keysize {
+        None => panic!("Couldn't find a goal keysize"),
+        Some(goal_keysize) => {
+            let mut transposed: Vec<Vec<u8>> = vec![vec![]; goal_keysize];
+            for slice in base64_decoded_ciphertext.chunks(goal_keysize) {
+                if slice.len() == goal_keysize {
+                    for i in 0..slice.len() {
+                        let item = slice[i];
+                        transposed[i].push(item);
+                    }
+                }
+            }
 
-    for block in transposed {
-        let (_, _, key) = word_scorer_bytes(&block[..]);
-        key_vector.push(key);
+            let mut key_vector: Vec<u8> = Vec::new();
+
+            for block in transposed {
+                let (_, _, key) = utils::word_scorer_bytes(&block[..]).unwrap();
+                key_vector.push(key);
+            }
+
+            let decrypted_buf = utils::repeating_key_xor(&base64_decoded_ciphertext , &key_vector[..]);
+
+            let decrypted_string = &str::from_utf8(&decrypted_buf).expect("Error converting decrypted buffer to string");
+
+            println!("decrypted string = {}", decrypted_string);
+
+            decrypted_string.to_string()
+        },
     }
-
-    let decrypted_buf = repeating_key_xor(&base64_decoded_ciphertext , &key_vector[..]);
-
-    let decrypted_string = &str::from_utf8(&decrypted_buf).expect("Error converting decrypted buffer to string");
-
-    println!("decrypted string = {}", decrypted_string);
-
-    decrypted_string.to_string()
 }
 
 #[cfg(test)]
@@ -282,7 +125,7 @@ mod tests {
     #[test]
     fn challenge_1() {
         let hex = "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d";
-        let base64_encoded = hex_to_base64(hex);
+        let base64_encoded = utils::hex_to_base64(hex);
         let answer_bytes = "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t";
         assert_eq!(base64_encoded, answer_bytes);
     }
@@ -291,7 +134,7 @@ mod tests {
     fn challenge_2() {
         let hex1 = "1c0111001f010100061a024b53535009181c";
         let hex2 = "686974207468652062756c6c277320657965";
-        let xor_result = xor_hex_strings(hex1, hex2);
+        let xor_result = utils::xor_hex_strings(hex1, hex2);
         let answer_bytes = "746865206b696420646f6e277420706c6179";
         assert_eq!(xor_result, answer_bytes);
     }
@@ -299,31 +142,25 @@ mod tests {
     #[test]
     fn challenge_3() {
         let hex = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736";
-        let (decode_result, _, _) = word_scorer(hex);
+        let (decode_result, _, _) = utils::word_scorer_string(hex).unwrap();
         let decoded_answer = "Cooking MC's like a pound of bacon";
         assert_eq!(decode_result, decoded_answer);
     }
 
-    #[test] //#[ignore]
+    #[test]
     fn challenge_4() {
         let xored_decrypt = detect_single_char_xor();
         let decoded_answer = "Now that the party is jumping\n";
         assert_eq!(xored_decrypt, decoded_answer);
     }
 
-    #[test] //#[ignore]
+    #[test]
     fn challenge_5() {
         let plaintext = "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
-        let repeated_xor_bytes = repeating_key_xor(&(plaintext.as_bytes()), &(String::from("ICE").as_bytes()));
-        let repeated_xor_string = bytes_to_hex(&repeated_xor_bytes);
+        let repeated_xor_bytes = utils::repeating_key_xor(&(plaintext.as_bytes()), &(String::from("ICE").as_bytes()));
+        let repeated_xor_string = utils::bytes_to_hex(&repeated_xor_bytes);
         let encrypted_answer = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f";
         assert_eq!(repeated_xor_string, encrypted_answer);
-    }
-
-    #[test]
-    fn hamming_distance_test() {
-        let distance = hamming_distance_strings("this is a test", "wokka wokka!!!");
-        assert_eq!(distance, 37);
     }
 
     #[test]
