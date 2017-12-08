@@ -8,5 +8,7 @@ fn main() {
     // let decoded_single_xor = cryptofriends::set_1::detect_single_char_xor();
     // println!("decoded_single_xor = {}", decoded_single_xor);
 
-    cryptofriends::set_1::break_repeating_xor();
+    // cryptofriends::set_1::break_repeating_xor();
+
+    cryptofriends::set_1::aes_ecb();
 }

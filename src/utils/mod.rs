@@ -2,6 +2,7 @@ extern crate itertools;
 extern crate base64;
 
 use std::u8;
+use std::f64;
 use std::str;
 use std::collections::HashMap;
 use std::ascii::AsciiExt;
@@ -205,6 +206,45 @@ pub fn read_base64_file_as_bytes(path: &PathBuf) -> Vec<u8>  {
     let buffer = read_file_as_bytes(&path);
 
     base64_to_bytes(&str::from_utf8(&buffer).expect("Error reading string from_utf8 bytes").replace('\n', ""))
+}
+
+pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
+
+    let mut goal_keysize = None;
+    let mut goal_dist = f64::INFINITY;
+
+    for keysize in 2..40 {
+
+        let chunk1 = &ciphertext[0..keysize];
+        let chunk2 = &ciphertext[keysize..keysize*2];
+        let chunk3 = &ciphertext[keysize*2..keysize*3];
+        let chunk4 = &ciphertext[keysize*3..keysize*4];
+
+        let dist_1_2 = hamming_distance_bytes(&chunk1, &chunk2);
+        let dist_1_3 = hamming_distance_bytes(&chunk1, &chunk3);
+        let dist_1_4 = hamming_distance_bytes(&chunk1, &chunk4);
+        let dist_2_3 = hamming_distance_bytes(&chunk2, &chunk3);
+        let dist_2_4 = hamming_distance_bytes(&chunk2, &chunk4);
+        let dist_3_4 = hamming_distance_bytes(&chunk3, &chunk4);
+
+        // TODO: all of this could probably be made nicer with a collection/combination
+        let average_dist: f64 = (dist_1_2 + dist_1_3 + dist_1_4 + dist_2_3 + dist_2_4 + dist_3_4) as f64 / (6.0 * keysize as f64);
+
+        if let Some(_) = goal_keysize {
+            if average_dist < goal_dist {
+                goal_dist = average_dist;
+                goal_keysize = Some(keysize);
+            }
+        } else {
+            goal_dist = average_dist;
+            goal_keysize = Some(keysize);
+        }
+    }
+
+    match goal_keysize {
+        None => Err(Error::new(ErrorKind::InvalidData, "Unable to find a keysize")),
+        Some(k) => Ok(k),
+    }
 }
 
 #[cfg(test)]
