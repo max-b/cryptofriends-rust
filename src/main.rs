@@ -10,5 +10,7 @@ fn main() {
 
     // cryptofriends::set_1::break_repeating_xor();
 
-    cryptofriends::set_1::aes_ecb();
+    if let Some(answer) = cryptofriends::set_1::detect_aes_ecb() {
+        println!("answer = {}", answer);
+    }
 }

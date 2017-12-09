@@ -4,6 +4,7 @@ use std::u8;
 use std::str;
 use std::io::BufReader;
 use std::io::prelude::*;
+use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::fs::File;
 use self::crypto::aessafe;
@@ -41,7 +42,6 @@ pub fn detect_single_char_xor() -> String {
         }
     }
 
-
     match best_score {
         None => panic!("Word scorer wasn't able to find a single valid xored string"),
         Some(_) => {
@@ -50,7 +50,7 @@ pub fn detect_single_char_xor() -> String {
     }
 }
 
-pub fn break_repeating_xor() -> String {
+pub fn challenge_6() -> String {
 
     let mut ciphertext_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     ciphertext_path.push("data");
@@ -59,10 +59,17 @@ pub fn break_repeating_xor() -> String {
 
     let base64_decoded_ciphertext = utils::read_base64_file_as_bytes(&ciphertext_path);
 
-    let keysize = utils::find_keysize(&base64_decoded_ciphertext).unwrap();
+    match break_repeating_xor(&base64_decoded_ciphertext) {
+        Ok(result) => result,
+        Err(err) => panic!("Couldn't break repeating xor: {}", err),
+    }
+}
+
+pub fn break_repeating_xor(ciphertext: &Vec<u8>) -> Result<String, Error>  {
+    let keysize = utils::find_keysize(&ciphertext).unwrap();
 
     let mut transposed: Vec<Vec<u8>> = vec![vec![]; keysize];
-    for slice in base64_decoded_ciphertext.chunks(keysize) {
+    for slice in ciphertext.chunks(keysize) {
         if slice.len() == keysize {
             for i in 0..slice.len() {
                 let item = slice[i];
@@ -74,15 +81,18 @@ pub fn break_repeating_xor() -> String {
     let mut key_vector: Vec<u8> = Vec::new();
 
     for block in transposed {
-        let (_, _, key) = utils::word_scorer_bytes(&block[..]).unwrap();
-        key_vector.push(key);
+        if let Ok((_, _, key)) = utils::word_scorer_bytes(&block[..]) {
+            key_vector.push(key);
+        } else {
+            return Err(Error::new(ErrorKind::InvalidData, "Can't run word_scorer on this block"));
+        }
     }
 
-    let decrypted_buf = utils::repeating_key_xor(&base64_decoded_ciphertext , &key_vector[..]);
+    let decrypted_buf = utils::repeating_key_xor(&ciphertext , &key_vector[..]);
 
     let decrypted_string = &str::from_utf8(&decrypted_buf).expect("Error converting decrypted buffer to string");
 
-    decrypted_string.to_string()
+    Ok(decrypted_string.to_string())
 }
 
 pub fn aes_ecb() -> String {
@@ -111,6 +121,40 @@ pub fn aes_ecb() -> String {
     let decrypted = str::from_utf8(&decrypted).expect("Error converting decrypted bytes to string");
 
     decrypted[0..base64_decoded_ciphertext.len()-4].to_string()
+}
+
+pub fn detect_aes_ecb() -> Option<String> {
+
+    let mut strings_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    strings_path.push("data");
+    strings_path.push("set_1");
+    strings_path.push("8.txt");
+
+    let strings_file = File::open(&strings_path).expect("Error reading strings file.");
+
+    let strings_file_as_reader = BufReader::new(strings_file);
+
+    for line in strings_file_as_reader.lines() {
+
+        let line = line.unwrap();
+        let line_bytes = utils::hex_to_bytes(&line[..]);
+
+        let mut blocks: Vec<&[u8]> = Vec::new();
+
+        for block in line_bytes.chunks(16) {
+            {
+                let mut iter = blocks.iter_mut();
+
+                if iter.any(|&mut x| block == x) {
+                    return Some(line)
+                }
+            }
+
+            blocks.push(block)
+        }
+    }
+
+    None
 }
 
 #[cfg(test)]
@@ -254,7 +298,7 @@ Play that funky music").replace("\n", "").replace(" ", "");
     fn challenge_6() {
         let setup = Setup::new();
 
-        let decoded = break_repeating_xor().replace("\n", "").replace(" ", "");
+        let decoded = super::challenge_6().replace("\n", "").replace(" ", "");
 
         assert_eq!(decoded, setup.decryption_answer);
     }
@@ -266,5 +310,15 @@ Play that funky music").replace("\n", "").replace(" ", "");
         let decoded = aes_ecb().replace("\n", "").replace(" ", "");
 
         assert_eq!(decoded, setup.decryption_answer);
+    }
+
+    #[test]
+    fn challenge_8() {
+        let aes_ecb_answer = "d880619740a8a19b7840a8a31c810a3d08649af70dc06f4fd5d2d69c744cd283e2dd052f6b641dbf9d11b0348542bb5708649af70dc06f4fd5d2d69c744cd2839475c9dfdbc1d46597949d9c7e82bf5a08649af70dc06f4fd5d2d69c744cd28397a93eab8d6aecd566489154789a6b0308649af70dc06f4fd5d2d69c744cd283d403180c98c8f6db1f2a3f9c4040deb0ab51b29933f2c123c58386b06fba186a";
+
+        match detect_aes_ecb() {
+            Some(string) => assert_eq!(string, aes_ecb_answer),
+            None => panic!("No aes ecb string found."),
+        }
     }
 }
