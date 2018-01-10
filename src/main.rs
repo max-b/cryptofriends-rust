@@ -10,7 +10,19 @@ fn main() {
 
     // cryptofriends::set_1::break_repeating_xor();
 
-    if let Some(answer) = cryptofriends::set_1::detect_aes_ecb() {
-        println!("answer = {}", answer);
-    }
+    // if let Some(answer) = cryptofriends::set_1::detect_aes_ecb() {
+    //     println!("answer = {}", answer);
+    // }
+    //
+    // let padded_string = cryptofriends::set_2::pkcs_7_pad_string("YELLOW SUBMARINE", 20);
+    // println!("Padded string = {}", padded_string);
+    // println!("Padded string length = {}", padded_string.len());
+
+    // let padded_string = cryptofriends::set_2::pkcs_7_pad_string("YELLOW SUBMARINE", 20);
+
+    let cbc_result = cryptofriends::set_2::aes_cbc();
+
+    println!("cbc decryption output = {}", cbc_result);
 }
+
+

@@ -7,8 +7,6 @@ use std::io::prelude::*;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::fs::File;
-use self::crypto::aessafe;
-use set_1::crypto::symmetriccipher::BlockDecryptor;
 use ::utils;
 
 pub fn detect_single_char_xor() -> String {
@@ -105,22 +103,11 @@ pub fn aes_ecb() -> String {
 
     let key = "YELLOW SUBMARINE".as_bytes();
 
-    let decryptor = aessafe::AesSafe128Decryptor::new(&key);
-
-    let mut decrypted: Vec<u8> = vec![0; base64_decoded_ciphertext.len()];
-
-    let block_size = decryptor.block_size();
-
-    let mut chunk_index = 0;
-
-    while chunk_index < base64_decoded_ciphertext.len() {
-        decryptor.decrypt_block(&base64_decoded_ciphertext[chunk_index..chunk_index+block_size], &mut decrypted[chunk_index..chunk_index+block_size]);
-        chunk_index += block_size;
-    }
+    let decrypted = utils::aes_ecb_decrypt(key, &base64_decoded_ciphertext);
 
     let decrypted = str::from_utf8(&decrypted).expect("Error converting decrypted bytes to string");
 
-    decrypted[0..base64_decoded_ciphertext.len()-4].to_string()
+    decrypted[0..decrypted.len()-4].to_string()
 }
 
 pub fn detect_aes_ecb() -> Option<String> {
@@ -307,9 +294,28 @@ Play that funky music").replace("\n", "").replace(" ", "");
     fn challenge_7() {
         let setup = Setup::new();
 
-        let decoded = aes_ecb().replace("\n", "").replace(" ", "");
+        let decrypted = aes_ecb().replace("\n", "").replace(" ", "");
 
-        assert_eq!(decoded, setup.decryption_answer);
+        assert_eq!(decrypted, setup.decryption_answer);
+    }
+
+
+    #[test]
+    fn aes_ecb_encrypt() {
+        let mut ciphertext_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        ciphertext_path.push("data");
+        ciphertext_path.push("set_1");
+        ciphertext_path.push("7.txt");
+
+        let base64_decoded_ciphertext: Vec<u8> = utils::read_base64_file_as_bytes(&ciphertext_path);
+
+        let key = "YELLOW SUBMARINE".as_bytes();
+
+        let decrypted: Vec<u8> = utils::aes_ecb_decrypt(key, &base64_decoded_ciphertext);
+
+        let encrypted: Vec<u8> = utils::aes_ecb_encrypt(key, &decrypted[..]);
+
+        assert_eq!(encrypted, base64_decoded_ciphertext);
     }
 
     #[test]

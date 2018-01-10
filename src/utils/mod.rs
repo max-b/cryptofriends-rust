@@ -1,5 +1,6 @@
 extern crate itertools;
 extern crate base64;
+extern crate crypto;
 
 use std::u8;
 use std::f64;
@@ -8,12 +9,15 @@ use std::collections::HashMap;
 use std::ascii::AsciiExt;
 use self::itertools::Itertools;
 use self::base64::{encode, decode};
+use self::crypto::aessafe;
 use std::io::prelude::*;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::fs::File;
+use utils::crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
 
-pub fn xor(buf1: &Vec<u8>, buf2: &Vec<u8>) -> Vec<u8> {
+pub fn xor(buf1: &[u8], buf2: &[u8]) -> Vec<u8> {
+    assert_eq!(buf1.len(), buf2.len());
     let mut bytes: Vec<u8> = Vec::new();
     for i in 0..buf1.len() {
         bytes.push(buf1[i] ^ buf2[i]);
@@ -61,7 +65,7 @@ pub fn xor_hex_strings(hex1: &str, hex2: &str) -> String {
     let buf1 = hex_to_bytes(hex1);
     let buf2 = hex_to_bytes(hex2);
 
-    let bytes = xor(&buf1, &buf2);
+    let bytes = xor(&buf1[..], &buf2[..]);
 
     bytes_to_hex(&bytes)
 }
@@ -134,7 +138,7 @@ pub fn hamming_distance_bytes(buf1: &[u8], buf2: &[u8]) -> usize {
     let buf1 = Vec::from(buf1);
     let buf2 = Vec::from(buf2);
 
-    let xor_result = xor(&buf1, &buf2);
+    let xor_result = xor(&buf1[..], &buf2[..]);
 
     let mut dist = 0;
 
@@ -245,6 +249,89 @@ pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
         None => Err(Error::new(ErrorKind::InvalidData, "Unable to find a keysize")),
         Some(k) => Ok(k),
     }
+}
+
+pub fn pkcs_7_pad(input: &[u8], size: usize) -> Vec<u8> {
+    assert!(input.len() <= size);
+
+    let mut padded = input.to_vec();
+
+    let difference = size - input.len();
+
+    for _ in 0..difference {
+        padded.push(4);
+    }
+
+    padded
+}
+
+pub fn aes_ecb_decrypt(key: &[u8], ciphertext: &[u8]) -> Vec<u8> {
+
+    let decryptor = aessafe::AesSafe128Decryptor::new(&key);
+
+    let mut decrypted: Vec<u8> = vec![0; ciphertext.len()];
+
+    let block_size = decryptor.block_size();
+
+    let mut chunk_index = 0;
+
+    while chunk_index < ciphertext.len() {
+        decryptor.decrypt_block(&ciphertext[chunk_index..chunk_index+block_size], &mut decrypted[chunk_index..chunk_index+block_size]);
+        chunk_index += block_size;
+    }
+
+    decrypted
+}
+
+pub fn aes_ecb_encrypt(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
+
+    let encryptor = aessafe::AesSafe128Encryptor::new(&key);
+
+    let mut encrypted: Vec<u8> = vec![0; plaintext.len()];
+
+    let block_size = encryptor.block_size();
+
+    let mut chunk_index = 0;
+
+    while chunk_index < plaintext.len() {
+        encryptor.encrypt_block(&plaintext[chunk_index..chunk_index+block_size], &mut encrypted[chunk_index..chunk_index+block_size]);
+        chunk_index += block_size;
+    }
+
+    encrypted
+}
+
+pub fn cbc_decrypt(key: &[u8], ciphertext: &[u8], iv: &[u8]) -> Vec<u8> {
+
+    let decryptor = aessafe::AesSafe128Decryptor::new(&key);
+
+    let mut decrypted: Vec<u8> = vec![0; ciphertext.len()];
+
+    let block_size = decryptor.block_size();
+
+    let mut chunk_index = 0;
+
+    let mut decrypt_output: Vec<u8> = vec![0; block_size];
+
+    while chunk_index < ciphertext.len() {
+
+        let decryption_slice: &mut[u8] = &mut decrypted[chunk_index..chunk_index+block_size];
+
+        decryptor.decrypt_block(&ciphertext[chunk_index..chunk_index+block_size], &mut decrypt_output[..]);
+
+        let plaintext = if chunk_index == 0 {
+            xor(&decrypt_output[..], iv)
+        } else {
+            let previous_ciphertext = &ciphertext[chunk_index-block_size..chunk_index];
+            xor(&decrypt_output[..], previous_ciphertext)
+        };
+
+        decryption_slice.copy_from_slice(&plaintext[..]);
+
+        chunk_index += block_size;
+    }
+
+    decrypted
 }
 
 #[cfg(test)]
