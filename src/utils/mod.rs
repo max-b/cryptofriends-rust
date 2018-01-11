@@ -285,18 +285,28 @@ pub fn aes_ecb_decrypt(key: &[u8], ciphertext: &[u8]) -> Vec<u8> {
     decrypted
 }
 
-pub fn aes_ecb_encrypt(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
+pub fn ecb_encrypt(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
 
     let encryptor = aessafe::AesSafe128Encryptor::new(&key);
 
-    let mut encrypted: Vec<u8> = vec![0; plaintext.len()];
-
     let block_size = encryptor.block_size();
+
+    // This actually has to be a multiple of the blocksize
+    let mut encrypted: Vec<u8> = vec![0; plaintext.len() + (block_size - (plaintext.len() % block_size))];
 
     let mut chunk_index = 0;
 
+    let mut padded_plaintext: Vec<u8> = vec![0; block_size];
+
     while chunk_index < plaintext.len() {
-        encryptor.encrypt_block(&plaintext[chunk_index..chunk_index+block_size], &mut encrypted[chunk_index..chunk_index+block_size]);
+
+        if chunk_index + block_size > plaintext.len() {
+            padded_plaintext = pkcs_7_pad(&plaintext[chunk_index..plaintext.len()], block_size);
+        } else {
+            padded_plaintext.copy_from_slice(&plaintext[chunk_index..chunk_index+block_size]);
+        }
+
+        encryptor.encrypt_block(&padded_plaintext[..], &mut encrypted[chunk_index..chunk_index+block_size]);
         chunk_index += block_size;
     }
 
@@ -372,19 +382,22 @@ pub fn cbc_encrypt(key: &[u8], plaintext: &[u8], iv: &[u8]) -> Vec<u8> {
     encrypted
 }
 
+pub fn random_bytes(size: u32) -> Vec<u8> {
+    let mut bytes: Vec<u8> = Vec::new();
+    let mut rng = rand::thread_rng();
+
+    for _i in 0..size {
+        bytes.push(rng.gen::<u8>());
+    }
+
+    bytes
+}
+
 pub fn generate_random_aes_key() -> Vec<u8> {
 
     // There's a conflict between using AesSafe1238Decryptor.block_size()
     // above and hardcoding 16 here, but not that big of deal
-    let keysize = 16;
-    let mut key: Vec<u8> = Vec::new();
-    let mut rng = rand::thread_rng();
-
-    for _i in 0..keysize {
-        key.push(rng.gen::<u8>());
-    }
-
-    key
+    random_bytes(16)
 }
 
 #[cfg(test)]

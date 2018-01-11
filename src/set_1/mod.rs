@@ -301,7 +301,7 @@ Play that funky music").replace("\n", "").replace(" ", "");
 
 
     #[test]
-    fn aes_ecb_encrypt() {
+    fn ecb_encrypt() {
         let mut ciphertext_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         ciphertext_path.push("data");
         ciphertext_path.push("set_1");
@@ -313,9 +313,9 @@ Play that funky music").replace("\n", "").replace(" ", "");
 
         let decrypted: Vec<u8> = utils::aes_ecb_decrypt(key, &base64_decoded_ciphertext);
 
-        let encrypted: Vec<u8> = utils::aes_ecb_encrypt(key, &decrypted[..]);
+        let encrypted: Vec<u8> = utils::ecb_encrypt(key, &decrypted[..]);
 
-        assert_eq!(encrypted, base64_decoded_ciphertext);
+        assert_eq!(&encrypted[0..base64_decoded_ciphertext.len()], &base64_decoded_ciphertext[..]);
     }
 
     #[test]

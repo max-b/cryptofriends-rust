@@ -1,8 +1,11 @@
 extern crate crypto;
+extern crate rand;
 
 use std::str;
 use ::utils;
 use std::path::PathBuf;
+use self::rand::distributions::{IndependentSample, Range};
+use self::rand::Rng;
 
 
 pub fn pkcs_7_pad_string(input: &str, size: usize) -> String {
@@ -37,6 +40,35 @@ pub fn aes_cbc() -> String {
     let decrypted = str::from_utf8(&decrypted).expect("Error converting decrypted bytes to string");
 
     decrypted.to_string()
+}
+
+#[derive(Debug,PartialEq)]
+pub enum EncryptionType {
+    CBC,
+    ECB,
+}
+
+pub fn encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionType) {
+    let random_key = utils::generate_random_aes_key();
+    let mut rng = rand::thread_rng();
+    let junk_size = Range::new(5, 11);
+    let left_junk = utils::random_bytes(junk_size.ind_sample(&mut rng));
+    let right_junk = utils::random_bytes(junk_size.ind_sample(&mut rng));
+
+    let mut junked_plaintext = Vec::new();
+    junked_plaintext.extend_from_slice(&left_junk[..]);
+    junked_plaintext.extend_from_slice(plaintext);
+    junked_plaintext.extend_from_slice(&right_junk[..]);
+
+    let random_iv = utils::random_bytes(16);
+
+    let use_cbc = rng.gen();
+
+    if use_cbc {
+        (utils::cbc_encrypt(&random_key[..], plaintext, &random_iv[..]), EncryptionType::CBC)
+    } else {
+        (utils::ecb_encrypt(&random_key[..], plaintext), EncryptionType::ECB)
+    }
 }
 
 #[cfg(test)]
@@ -78,7 +110,7 @@ mod tests {
 
         let encrypted = utils::cbc_encrypt(key, &decrypted[..], &iv[..]);
 
-        assert_eq!(encrypted, base64_decoded_ciphertext);
+        assert_eq!(&encrypted[..base64_decoded_ciphertext.len()], &base64_decoded_ciphertext[..]);
 
         let mut plaintext_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         plaintext_path.push("src");
@@ -98,5 +130,18 @@ mod tests {
     }
 
 
+    #[test]
+    fn challenge_11() {
+
+        for _i in 0..10 {
+            let chosen_plaintext = vec![0; 32];
+            let (output, encryption_type) = encryption_oracle(&chosen_plaintext[..]);
+            if output[0..16] == output[16..32] {
+                assert_eq!(encryption_type, EncryptionType::ECB);
+            } else {
+                assert_eq!(encryption_type, EncryptionType::CBC);
+            }
+        }
+    }
 }
 
