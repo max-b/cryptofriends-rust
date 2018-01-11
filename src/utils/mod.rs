@@ -1,6 +1,7 @@
 extern crate itertools;
 extern crate base64;
 extern crate crypto;
+extern crate rand;
 
 use std::u8;
 use std::f64;
@@ -14,7 +15,8 @@ use std::io::prelude::*;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::fs::File;
-use utils::crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
+use self::crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
+use self::rand::Rng;
 
 pub fn xor(buf1: &[u8], buf2: &[u8]) -> Vec<u8> {
     assert_eq!(buf1.len(), buf2.len());
@@ -197,7 +199,7 @@ pub fn word_scorer_string(hex: &str) ->  Result<(String, f64, u8), Error> {
     word_scorer_bytes(&buf[..])
 }
 
-fn read_file_as_bytes(path: &PathBuf) -> Vec<u8> {
+pub fn read_file_as_bytes(path: &PathBuf) -> Vec<u8> {
     let mut file = File::open(&path).expect("Error opening ciphertext file.");
 
     let mut buffer = Vec::new();
@@ -305,9 +307,11 @@ pub fn cbc_decrypt(key: &[u8], ciphertext: &[u8], iv: &[u8]) -> Vec<u8> {
 
     let decryptor = aessafe::AesSafe128Decryptor::new(&key);
 
-    let mut decrypted: Vec<u8> = vec![0; ciphertext.len()];
-
     let block_size = decryptor.block_size();
+
+    assert!(ciphertext.len() % block_size == 0);
+
+    let mut decrypted: Vec<u8> = vec![0; ciphertext.len()];
 
     let mut chunk_index = 0;
 
@@ -332,6 +336,55 @@ pub fn cbc_decrypt(key: &[u8], ciphertext: &[u8], iv: &[u8]) -> Vec<u8> {
     }
 
     decrypted
+}
+
+pub fn cbc_encrypt(key: &[u8], plaintext: &[u8], iv: &[u8]) -> Vec<u8> {
+
+    let encryptor = aessafe::AesSafe128Encryptor::new(&key);
+
+    let block_size = encryptor.block_size();
+
+    // This actually has to be a multiple of the blocksize
+    let mut encrypted: Vec<u8> = vec![0; plaintext.len() + (block_size - (plaintext.len() % block_size))];
+
+    let mut chunk_index = 0;
+
+    let mut padded_plaintext: Vec<u8> = vec![0; block_size];
+    let mut previous_ciphertext_block: Vec<u8> = iv.to_vec();
+
+    while chunk_index < plaintext.len() {
+
+        if chunk_index + block_size > plaintext.len() {
+            padded_plaintext = pkcs_7_pad(&plaintext[chunk_index..plaintext.len()], block_size);
+        } else {
+            padded_plaintext.copy_from_slice(&plaintext[chunk_index..chunk_index+block_size]);
+        }
+
+        let iv_xor_plaintext = xor(&padded_plaintext[..], &previous_ciphertext_block[..]);
+
+        encryptor.encrypt_block(&iv_xor_plaintext[..], &mut encrypted[chunk_index..chunk_index+block_size]);
+
+        previous_ciphertext_block.copy_from_slice(&encrypted[chunk_index..chunk_index+block_size]);
+
+        chunk_index += block_size;
+    }
+
+    encrypted
+}
+
+pub fn generate_random_aes_key() -> Vec<u8> {
+
+    // There's a conflict between using AesSafe1238Decryptor.block_size()
+    // above and hardcoding 16 here, but not that big of deal
+    let keysize = 16;
+    let mut key: Vec<u8> = Vec::new();
+    let mut rng = rand::thread_rng();
+
+    for _i in 0..keysize {
+        key.push(rng.gen::<u8>());
+    }
+
+    key
 }
 
 #[cfg(test)]
