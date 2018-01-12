@@ -48,7 +48,7 @@ pub enum EncryptionType {
     ECB,
 }
 
-pub fn encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionType) {
+pub fn random_key_encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionType) {
     let random_key = utils::generate_random_aes_key();
     let mut rng = rand::thread_rng();
     let junk_size = Range::new(5, 11);
@@ -70,6 +70,22 @@ pub fn encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionType) {
         (utils::ecb_encrypt(&random_key[..], plaintext), EncryptionType::ECB)
     }
 }
+
+thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = utils::generate_random_aes_key());
+
+pub fn consistent_key_encryption_oracle(plaintext: &[u8]) -> Vec<u8> {
+    let append_string = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK";
+
+    let append_bytes = utils::base64_to_bytes(append_string);
+
+    let mut appended_plaintext: Vec<u8> = plaintext.to_vec();
+    appended_plaintext.extend_from_slice(&append_bytes[..]);
+
+    CONSISTENT_RANDOM_KEY.with(|k| {
+        utils::ecb_encrypt(&k[..], &appended_plaintext[..])
+    })
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -129,19 +145,80 @@ mod tests {
         assert_eq!(decrypted[..plaintext_bytes.len()], plaintext_bytes[..]);
     }
 
-
     #[test]
     fn challenge_11() {
 
         for _i in 0..10 {
             let chosen_plaintext = vec![0; 32];
-            let (output, encryption_type) = encryption_oracle(&chosen_plaintext[..]);
+            let (output, encryption_type) = random_key_encryption_oracle(&chosen_plaintext[..]);
             if output[0..16] == output[16..32] {
                 assert_eq!(encryption_type, EncryptionType::ECB);
             } else {
                 assert_eq!(encryption_type, EncryptionType::CBC);
             }
         }
+    }
+
+    #[test]
+    fn challenge_12() {
+
+        let mut test_plaintext = Vec::new();
+        let mut block_size = 0;
+
+        for i in 0..256 { // assume block size < 256
+            test_plaintext.push(b'A');
+            test_plaintext.push(b'A');
+            let oracle_output = consistent_key_encryption_oracle(&test_plaintext [..]);
+            if &oracle_output[..i+1] == &oracle_output[i+1..(i+1)*2] {
+                block_size = i+1;
+                break;
+            }
+        }
+
+        let original_ciphertext = consistent_key_encryption_oracle(&[]);
+        let len = original_ciphertext.len();
+
+        let mut unknown_bytes: Vec<u8> = Vec::new();
+        let mut chunk_index = 0;
+
+        while chunk_index < len {
+
+            let mut discovered_block: Vec<u8> = Vec::new();
+
+            for i in 0..block_size {
+                let block_index = block_size - i - 1; // also # to pad
+
+                let padded_plaintext: Vec<u8> = vec![b'A'; block_index];
+
+                let oracle_output_1 = consistent_key_encryption_oracle(&padded_plaintext[..]);
+
+                let mut test_plaintext: Vec<u8> = vec![b'A'; block_index];
+                test_plaintext.extend_from_slice(&unknown_bytes[..]);
+                test_plaintext.extend_from_slice(&discovered_block[..]);
+
+                test_plaintext.push(0);
+
+                for j in 0..256 {
+                    let byte = j as u8;
+                    let len = test_plaintext.len();
+                    test_plaintext[len - 1] = byte;
+                    let oracle_output_test = consistent_key_encryption_oracle(&test_plaintext [..]);
+
+                    if &oracle_output_1[chunk_index..chunk_index+block_size] == &oracle_output_test[chunk_index..chunk_index+block_size] {
+                        discovered_block.push(byte);
+                        break;
+                    }
+                }
+            }
+
+            unknown_bytes.extend_from_slice(&discovered_block[..]);
+            chunk_index += block_size;
+        }
+
+        let solved_plaintext = str::from_utf8(&unknown_bytes[..]).expect("couldn't decode string");
+
+        println!("solved = {:?}", solved_plaintext);
+        assert!(solved_plaintext.contains("With my rag-top down so my hair can blow"));
     }
 }
 
