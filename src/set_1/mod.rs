@@ -103,11 +103,11 @@ pub fn aes_ecb() -> String {
 
     let key = "YELLOW SUBMARINE".as_bytes();
 
-    let decrypted = utils::aes_ecb_decrypt(key, &base64_decoded_ciphertext);
+    let decrypted = utils::ecb_decrypt(key, &base64_decoded_ciphertext);
 
     let decrypted = str::from_utf8(&decrypted).expect("Error converting decrypted bytes to string");
 
-    decrypted[0..decrypted.len()-4].to_string()
+    decrypted[..].to_string()
 }
 
 pub fn detect_aes_ecb() -> Option<String> {
@@ -311,11 +311,11 @@ Play that funky music").replace("\n", "").replace(" ", "");
 
         let key = "YELLOW SUBMARINE".as_bytes();
 
-        let decrypted: Vec<u8> = utils::aes_ecb_decrypt(key, &base64_decoded_ciphertext);
+        let decrypted: Vec<u8> = utils::ecb_decrypt(key, &base64_decoded_ciphertext);
 
         let encrypted: Vec<u8> = utils::ecb_encrypt(key, &decrypted[..]);
 
-        assert_eq!(&encrypted[0..base64_decoded_ciphertext.len()], &base64_decoded_ciphertext[..]);
+        assert_eq!(&encrypted[..], &base64_decoded_ciphertext[..]);
     }
 
     #[test]

@@ -20,9 +20,9 @@ fn main() {
 
     // let padded_string = cryptofriends::set_2::pkcs_7_pad_string("YELLOW SUBMARINE", 20);
 
-    let cbc_result = cryptofriends::set_2::aes_cbc();
 
-    println!("cbc decryption output = {}", cbc_result);
+    // let result = encrypted_profile_for("foo@bar.co");
+    // println!("encrypted profile = {:?}", result);
 }
 
 

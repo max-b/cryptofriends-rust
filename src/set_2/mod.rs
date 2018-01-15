@@ -86,6 +86,46 @@ pub fn consistent_key_encryption_oracle(plaintext: &[u8]) -> Vec<u8> {
     })
 }
 
+pub fn key_value_parser(s: &str) -> Vec<(String, String)> {
+    let input = s.to_string();
+    let mut result: Vec<(String, String)> = Vec::new();
+    let pairs = input.split("&");
+
+    for pair in pairs {
+        let mut key_value = pair.split("=");
+        let key = key_value.next().expect("no key found");
+        let value = key_value.next().expect("no value found");
+
+        result.push((key.to_string(), value.to_string()));
+    }
+
+    result
+}
+
+pub fn profile_for(s: &str) -> String {
+    let stripped = s.to_string().replace("&", "");
+    let stripped = stripped.replace("=", "");
+
+    "email=".to_string() + &stripped + "&uid=10&role=user"
+}
+
+pub fn encrypted_profile_for(s: &str) -> Vec<u8> {
+    let plaintext = profile_for(s);
+    let plaintext_bytes = plaintext.as_bytes();
+
+    CONSISTENT_RANDOM_KEY.with(|k| {
+        utils::ecb_encrypt(&k[..], &plaintext_bytes[..])
+    })
+}
+
+pub fn decrypt_and_parse_profile(ciphertext: &[u8]) -> Vec<(String, String)> {
+
+    CONSISTENT_RANDOM_KEY.with(|k| {
+        let plaintext_bytes = utils::ecb_decrypt(&k[..], &ciphertext[..]);
+        let plaintext = str::from_utf8(&plaintext_bytes).expect("Cannot create string from decrypted plaintext bytes.").trim();
+        key_value_parser(&plaintext[..])
+    })
+}
 
 #[cfg(test)]
 mod tests {
@@ -94,10 +134,12 @@ mod tests {
     #[test]
     fn challenge_9() {
         let padded_string = pkcs_7_pad_string("YELLOW SUBMARINE", 20);
+        println!("padded string = {}", padded_string);
         assert_eq!(padded_string.len(), 20);
 
         let padded_string_2 = pkcs_7_pad_string("YELLOW SUBMARINE", 16);
-        assert_eq!(padded_string_2.len(), 16);
+        println!("padded string2 = {}", padded_string_2);
+        assert_eq!(padded_string_2.len(), 32);
     }
 
 
@@ -220,5 +262,61 @@ mod tests {
         println!("solved = {:?}", solved_plaintext);
         assert!(solved_plaintext.contains("With my rag-top down so my hair can blow"));
     }
-}
 
+    #[test]
+    fn key_value_parser_test() {
+        let result = key_value_parser("foo=bar&baz=qux&zap=zazzle");
+        println!("result = {:?}", result);
+    }
+
+    #[test]
+    fn profile_for_test() {
+        let result = profile_for("foo@bar.com");
+        assert_eq!(result, "email=foo@bar.com&uid=10&role=user");
+        let result = profile_for("foo@bar.com&test=value");
+        assert_eq!(result, "email=foo@bar.comtestvalue&uid=10&role=user");
+    }
+
+    #[test]
+    fn encrypt_and_decrypt_profile() {
+        let result = encrypted_profile_for("foo@bar.co");
+        println!("encrypted profile = {:?}", result);
+        let parsed = decrypt_and_parse_profile(&result[..]);
+        println!("parsed = {:?}", parsed);
+    }
+
+    #[test]
+    fn challenge_13() {
+
+        let junk1: Vec<u8> = vec![b'A'; 10];
+        let junk2: Vec<u8> = vec![b'A'; 4];
+
+        let mut admin_with_padding = "admin".as_bytes().to_vec();
+        let padding = vec![11; 11];
+
+        admin_with_padding.extend_from_slice(&padding[..]);
+
+        let mut test_bytes = Vec::new();
+
+        test_bytes.extend_from_slice(&junk1[..]);
+        test_bytes.extend_from_slice(&admin_with_padding[..]);
+        test_bytes.extend_from_slice(&junk2[..]);
+
+        let test_plaintext = str::from_utf8(&test_bytes[..]).expect("cannot convert bytes to string");
+
+        let ciphertext = encrypted_profile_for(test_plaintext);
+
+        let test_plaintext = "foooo@bar.com";
+        let mut ciphertext2 = encrypted_profile_for(test_plaintext);
+
+        // truncate last 16 bytes of ciphertext2
+        ciphertext2.truncate(32);
+
+        ciphertext2.extend_from_slice(&ciphertext[16..32]);
+
+        let decrypted = decrypt_and_parse_profile(&ciphertext2[..]);
+
+        let admin_parsed = key_value_parser("email=foooo@bar.com&uid=10&role=admin");
+        assert_eq!(decrypted, admin_parsed);
+    }
+}

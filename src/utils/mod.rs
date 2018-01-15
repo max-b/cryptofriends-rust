@@ -254,20 +254,31 @@ pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
 }
 
 pub fn pkcs_7_pad(input: &[u8], size: usize) -> Vec<u8> {
-    assert!(input.len() <= size);
-
     let mut padded = input.to_vec();
 
-    let difference = size - input.len();
+    let mut difference = if input.len() < size {
+        size - input.len()
+    } else {
+        size - (input.len() % size)
+    };
+
+    if difference == 0 {
+        difference = size;
+    }
 
     for _ in 0..difference {
-        padded.push(4);
+        padded.push(difference as u8);
     }
 
     padded
 }
 
-pub fn aes_ecb_decrypt(key: &[u8], ciphertext: &[u8]) -> Vec<u8> {
+pub fn pkcs_7_unpad(input: &[u8]) -> Vec<u8> {
+    let amount_padded = input[input.len() - 1];
+    input[..input.len() - amount_padded as usize].to_vec()
+}
+
+pub fn ecb_decrypt(key: &[u8], ciphertext: &[u8]) -> Vec<u8> {
 
     let decryptor = aessafe::AesSafe128Decryptor::new(&key);
 
@@ -282,7 +293,7 @@ pub fn aes_ecb_decrypt(key: &[u8], ciphertext: &[u8]) -> Vec<u8> {
         chunk_index += block_size;
     }
 
-    decrypted
+    pkcs_7_unpad(&decrypted[..])
 }
 
 pub fn ecb_encrypt(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
@@ -291,22 +302,13 @@ pub fn ecb_encrypt(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
 
     let block_size = encryptor.block_size();
 
-    // This actually has to be a multiple of the blocksize
-    let mut encrypted: Vec<u8> = vec![0; plaintext.len() + (block_size - (plaintext.len() % block_size))];
+    let plaintext = pkcs_7_pad(plaintext, block_size);
+    let mut encrypted: Vec<u8> = vec![0; plaintext.len()];
 
     let mut chunk_index = 0;
 
-    let mut padded_plaintext: Vec<u8> = vec![0; block_size];
-
-    while chunk_index < plaintext.len() {
-
-        if chunk_index + block_size > plaintext.len() {
-            padded_plaintext = pkcs_7_pad(&plaintext[chunk_index..plaintext.len()], block_size);
-        } else {
-            padded_plaintext.copy_from_slice(&plaintext[chunk_index..chunk_index+block_size]);
-        }
-
-        encryptor.encrypt_block(&padded_plaintext[..], &mut encrypted[chunk_index..chunk_index+block_size]);
+    for block in plaintext.chunks(block_size) {
+        encryptor.encrypt_block(&block, &mut encrypted[chunk_index..chunk_index+block_size]);
         chunk_index += block_size;
     }
 
@@ -345,7 +347,7 @@ pub fn cbc_decrypt(key: &[u8], ciphertext: &[u8], iv: &[u8]) -> Vec<u8> {
         chunk_index += block_size;
     }
 
-    decrypted
+    pkcs_7_unpad(&decrypted[..])
 }
 
 pub fn cbc_encrypt(key: &[u8], plaintext: &[u8], iv: &[u8]) -> Vec<u8> {
@@ -354,23 +356,20 @@ pub fn cbc_encrypt(key: &[u8], plaintext: &[u8], iv: &[u8]) -> Vec<u8> {
 
     let block_size = encryptor.block_size();
 
-    // This actually has to be a multiple of the blocksize
-    let mut encrypted: Vec<u8> = vec![0; plaintext.len() + (block_size - (plaintext.len() % block_size))];
+    let plaintext = pkcs_7_pad(plaintext, block_size);
+
+    let mut encrypted: Vec<u8> = vec![0; plaintext.len()];
 
     let mut chunk_index = 0;
 
-    let mut padded_plaintext: Vec<u8> = vec![0; block_size];
+    let mut plaintext_slice: Vec<u8> = vec![0; block_size];
     let mut previous_ciphertext_block: Vec<u8> = iv.to_vec();
 
     while chunk_index < plaintext.len() {
 
-        if chunk_index + block_size > plaintext.len() {
-            padded_plaintext = pkcs_7_pad(&plaintext[chunk_index..plaintext.len()], block_size);
-        } else {
-            padded_plaintext.copy_from_slice(&plaintext[chunk_index..chunk_index+block_size]);
-        }
+        plaintext_slice.copy_from_slice(&plaintext[chunk_index..chunk_index+block_size]);
 
-        let iv_xor_plaintext = xor(&padded_plaintext[..], &previous_ciphertext_block[..]);
+        let iv_xor_plaintext = xor(&plaintext_slice[..], &previous_ciphertext_block[..]);
 
         encryptor.encrypt_block(&iv_xor_plaintext[..], &mut encrypted[chunk_index..chunk_index+block_size]);
 
@@ -399,6 +398,8 @@ pub fn generate_random_aes_key() -> Vec<u8> {
     // above and hardcoding 16 here, but not that big of deal
     random_bytes(16)
 }
+
+
 
 #[cfg(test)]
 mod tests {
