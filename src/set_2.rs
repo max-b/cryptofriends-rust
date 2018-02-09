@@ -1,5 +1,5 @@
 use std::str;
-use ::utils;
+use utils;
 use std::path::PathBuf;
 use rand::distributions::{IndependentSample, Range};
 use rand::{thread_rng, Rng};
@@ -202,6 +202,8 @@ mod tests {
         ciphertext_path.push("set_2");
         ciphertext_path.push("10.txt");
 
+        println!("{:?}", ciphertext_path);
+
         let base64_decoded_ciphertext = utils::read_base64_file_as_bytes(&ciphertext_path);
 
         let key = "YELLOW SUBMARINE".as_bytes();
@@ -215,8 +217,7 @@ mod tests {
 
         let mut plaintext_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         plaintext_path.push("src");
-        plaintext_path.push("set_1");
-        plaintext_path.push("mod.rs");
+        plaintext_path.push("set_1.rs");
 
         let plaintext_bytes = utils::read_file_as_bytes(&plaintext_path);
 

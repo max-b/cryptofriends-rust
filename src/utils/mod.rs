@@ -195,6 +195,7 @@ pub fn word_scorer_string(hex: &str) ->  Result<(String, f64, u8), Error> {
 }
 
 pub fn read_file_as_bytes(path: &PathBuf) -> Vec<u8> {
+    println!("{:?}", path);
     let mut file = File::open(&path).expect("Error opening ciphertext file.");
 
     let mut buffer = Vec::new();

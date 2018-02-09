@@ -5,7 +5,7 @@ use std::io::prelude::*;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::fs::File;
-use ::utils;
+use utils;
 
 pub fn detect_single_char_xor() -> String {
     let mut strings_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
