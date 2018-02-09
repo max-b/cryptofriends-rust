@@ -2,7 +2,7 @@ use std::str;
 use utils;
 use std::path::PathBuf;
 use rand::distributions::{IndependentSample, Range};
-use rand::{thread_rng, Rng};
+use rand::{OsRng, Rng};
 
 
 pub fn pkcs_7_pad_string(input: &str, size: usize) -> String {
@@ -47,7 +47,12 @@ pub enum EncryptionType {
 
 pub fn random_key_encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionType) {
     let random_key = utils::generate_random_aes_key();
-    let mut rng = thread_rng();
+
+    let mut rng = match OsRng::new() {
+        Ok(g) => g,
+        Err(e) => panic!("Failed to obtain OS RNG: {}", e)
+    };
+
     let junk_size = Range::new(5, 11);
     let left_junk = utils::random_bytes(junk_size.ind_sample(&mut rng));
     let right_junk = utils::random_bytes(junk_size.ind_sample(&mut rng));
@@ -87,7 +92,12 @@ pub fn challenge_14_encryption_oracle(input_plaintext: &[u8]) -> Vec<u8> {
     let append_string = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK";
 
     let append_bytes = utils::base64_to_bytes(append_string);
-    let mut rng = thread_rng();
+
+    let mut rng = match OsRng::new() {
+        Ok(g) => g,
+        Err(e) => panic!("Failed to obtain OS RNG: {}", e)
+    };
+
     let prefix_size = Range::new(0, 256);
 
     let mut plaintext = utils::random_bytes(prefix_size.ind_sample(&mut rng));
@@ -234,7 +244,7 @@ mod tests {
     #[test]
     fn challenge_11() {
 
-        for _i in 0..10 {
+        for _ in 0..10 {
             let chosen_plaintext = vec![0; 32];
             let (output, encryption_type) = random_key_encryption_oracle(&chosen_plaintext[..]);
             if output[0..16] == output[16..32] {
