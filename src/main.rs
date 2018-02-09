@@ -23,6 +23,8 @@ fn main() {
 
     // let result = encrypted_profile_for("foo@bar.co");
     // println!("encrypted profile = {:?}", result);
+    let result = cryptofriends::set_2::challenge_14_encryption_oracle("YELLOW SUBMARINE".as_bytes());
+    println!("result = {:?}", result);
 }
 
 

@@ -242,10 +242,7 @@ pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
         }
     }
 
-    match goal_keysize {
-        None => Err(Error::new(ErrorKind::InvalidData, "Unable to find a keysize")),
-        Some(k) => Ok(k),
-    }
+    goal_keysize.ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unable to find a keysize"))
 }
 
 pub fn pkcs_7_pad(input: &[u8], size: usize) -> Vec<u8> {

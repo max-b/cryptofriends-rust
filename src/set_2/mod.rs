@@ -83,6 +83,25 @@ pub fn consistent_key_encryption_oracle(plaintext: &[u8]) -> Vec<u8> {
     })
 }
 
+pub fn challenge_14_encryption_oracle(input_plaintext: &[u8]) -> Vec<u8> {
+    let append_string = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK";
+
+    let append_bytes = utils::base64_to_bytes(append_string);
+    let mut rng = thread_rng();
+    let prefix_size = Range::new(0, 256);
+
+    let mut plaintext = utils::random_bytes(prefix_size.ind_sample(&mut rng));
+
+    plaintext.extend_from_slice(&input_plaintext[..]);
+    plaintext.extend_from_slice(&append_bytes[..]);
+
+    println!("plaintext = {:?}", plaintext);
+
+    CONSISTENT_RANDOM_KEY.with(|k| {
+        utils::ecb_encrypt(&k[..], &plaintext[..])
+    })
+}
+
 pub fn key_value_parser(s: &str) -> Vec<(String, String)> {
     let input = s.to_string();
     let mut result: Vec<(String, String)> = Vec::new();
@@ -122,6 +141,33 @@ pub fn decrypt_and_parse_profile(ciphertext: &[u8]) -> Vec<(String, String)> {
         let plaintext = str::from_utf8(&plaintext_bytes).expect("Cannot create string from decrypted plaintext bytes.").trim();
         key_value_parser(&plaintext[..])
     })
+}
+
+pub fn find_block_size(oracle: &Fn(&[u8]) -> Vec<u8>) -> usize {
+    let mut test_plaintext = vec![b'A'; 16];
+    let mut block_size = 0;
+
+    'outer: for i in 4..256 { // assume 4 < block size < 256
+        test_plaintext.push(b'A');
+        test_plaintext.push(b'A');
+        test_plaintext.push(b'A');
+        test_plaintext.push(b'A');
+
+        let oracle_output = oracle(&test_plaintext [..]);
+
+
+        for j in 0..oracle_output.len() - ((i+1)*2) {
+
+            if &oracle_output[j..j+i+1] == &oracle_output[j+i+1..j+((i+1)*2)] {
+                block_size = i+1;
+                break 'outer;
+            }
+        }
+    }
+
+    // TODO: change this to Result
+    assert!(block_size > 0);
+    block_size
 }
 
 #[cfg(test)]
@@ -201,24 +247,13 @@ mod tests {
     #[test]
     fn challenge_12() {
 
-        let mut test_plaintext = Vec::new();
-        let mut block_size = 0;
-
-        for i in 0..256 { // assume block size < 256
-            test_plaintext.push(b'A');
-            test_plaintext.push(b'A');
-            let oracle_output = consistent_key_encryption_oracle(&test_plaintext [..]);
-            if &oracle_output[..i+1] == &oracle_output[i+1..(i+1)*2] {
-                block_size = i+1;
-                break;
-            }
-        }
-
         let original_ciphertext = consistent_key_encryption_oracle(&[]);
         let len = original_ciphertext.len();
 
         let mut unknown_bytes: Vec<u8> = Vec::with_capacity(len);
         let mut chunk_index = 0;
+
+        let block_size = find_block_size(&consistent_key_encryption_oracle);
 
         while chunk_index < len {
 
@@ -316,5 +351,14 @@ mod tests {
 
         let admin_parsed = key_value_parser("email=foooo@bar.com&uid=10&role=admin");
         assert_eq!(decrypted, admin_parsed);
+    }
+
+
+    #[test]
+    fn challenge_14() {
+
+        let block_size = find_block_size(&challenge_14_encryption_oracle);
+
+        println!("block_size = {}", block_size);
     }
 }
