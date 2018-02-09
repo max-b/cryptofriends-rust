@@ -1,11 +1,8 @@
-extern crate crypto;
-extern crate rand;
-
 use std::str;
 use ::utils;
 use std::path::PathBuf;
-use self::rand::distributions::{IndependentSample, Range};
-use self::rand::Rng;
+use rand::distributions::{IndependentSample, Range};
+use rand::{thread_rng, Rng};
 
 
 pub fn pkcs_7_pad_string(input: &str, size: usize) -> String {
@@ -33,7 +30,7 @@ pub fn aes_cbc() -> String {
     let base64_decoded_ciphertext = utils::read_base64_file_as_bytes(&ciphertext_path);
 
     let key = "YELLOW SUBMARINE".as_bytes();
-    let iv: Vec<u8> = vec![0; 16];
+    let iv = [0u8; 16];
 
     let decrypted = utils::cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]);
 
@@ -50,7 +47,7 @@ pub enum EncryptionType {
 
 pub fn random_key_encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionType) {
     let random_key = utils::generate_random_aes_key();
-    let mut rng = rand::thread_rng();
+    let mut rng = thread_rng();
     let junk_size = Range::new(5, 11);
     let left_junk = utils::random_bytes(junk_size.ind_sample(&mut rng));
     let right_junk = utils::random_bytes(junk_size.ind_sample(&mut rng));
@@ -220,12 +217,12 @@ mod tests {
         let original_ciphertext = consistent_key_encryption_oracle(&[]);
         let len = original_ciphertext.len();
 
-        let mut unknown_bytes: Vec<u8> = Vec::new();
+        let mut unknown_bytes: Vec<u8> = Vec::with_capacity(len);
         let mut chunk_index = 0;
 
         while chunk_index < len {
 
-            let mut discovered_block: Vec<u8> = Vec::new();
+            let mut discovered_block: Vec<u8> = Vec::with_capacity(block_size);
 
             for i in 0..block_size {
                 let block_index = block_size - i - 1; // also # to pad
@@ -296,7 +293,8 @@ mod tests {
 
         admin_with_padding.extend_from_slice(&padding[..]);
 
-        let mut test_bytes = Vec::new();
+        let total_length = junk1.len() + junk2.len() + admin_with_padding.len();
+        let mut test_bytes = Vec::with_capacity(total_length);
 
         test_bytes.extend_from_slice(&junk1[..]);
         test_bytes.extend_from_slice(&admin_with_padding[..]);

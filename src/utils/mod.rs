@@ -1,26 +1,21 @@
-extern crate itertools;
-extern crate base64;
-extern crate crypto;
-extern crate rand;
-
 use std::u8;
 use std::f64;
 use std::str;
 use std::collections::HashMap;
 use std::ascii::AsciiExt;
-use self::itertools::Itertools;
-use self::base64::{encode, decode};
-use self::crypto::aessafe;
+use itertools::Itertools;
+use base64::{encode, decode};
+use crypto::aessafe;
 use std::io::prelude::*;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::fs::File;
-use self::crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
-use self::rand::Rng;
+use crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
+use rand::{thread_rng, Rng};
 
 pub fn xor(buf1: &[u8], buf2: &[u8]) -> Vec<u8> {
     assert_eq!(buf1.len(), buf2.len());
-    let mut bytes: Vec<u8> = Vec::new();
+    let mut bytes: Vec<u8> = Vec::with_capacity(buf1.len());
     for i in 0..buf1.len() {
         bytes.push(buf1[i] ^ buf2[i]);
     }
@@ -29,7 +24,7 @@ pub fn xor(buf1: &[u8], buf2: &[u8]) -> Vec<u8> {
 }
 
 fn single_xor(buf: &[u8], key: u8) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::new();
+    let mut bytes: Vec<u8> = Vec::with_capacity(buf.len());
     for i in buf.into_iter() {
         bytes.push(i ^ key);
     }
@@ -38,7 +33,7 @@ fn single_xor(buf: &[u8], key: u8) -> Vec<u8> {
 }
 
 pub fn hex_to_bytes(hex: &str) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::new();
+    let mut bytes: Vec<u8> = Vec::with_capacity(hex.len()/2);
     for i in 0..(hex.len()/2) {
         let hex_string = &hex[(i*2)..(i*2)+2];
         let res = u8::from_str_radix(hex_string, 16).expect(&format!("Problem with hex {}", hex_string));
@@ -73,7 +68,7 @@ pub fn xor_hex_strings(hex1: &str, hex2: &str) -> String {
 }
 
 pub fn repeating_key_xor(buf: &[u8], key: &[u8]) -> Vec<u8> {
-    let mut result: Vec<u8> = Vec::new();
+    let mut result: Vec<u8> = Vec::with_capacity(buf.len());
 
     let mut key_iter = key.into_iter().cycle();
 
@@ -382,8 +377,8 @@ pub fn cbc_encrypt(key: &[u8], plaintext: &[u8], iv: &[u8]) -> Vec<u8> {
 }
 
 pub fn random_bytes(size: u32) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::new();
-    let mut rng = rand::thread_rng();
+    let mut bytes: Vec<u8> = Vec::with_capacity(size as usize);
+    let mut rng = thread_rng();
 
     for _i in 0..size {
         bytes.push(rng.gen::<u8>());

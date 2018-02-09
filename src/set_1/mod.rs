@@ -1,5 +1,3 @@
-extern crate crypto;
-
 use std::u8;
 use std::str;
 use std::io::BufReader;
@@ -126,7 +124,7 @@ pub fn detect_aes_ecb() -> Option<String> {
         let line = line.unwrap();
         let line_bytes = utils::hex_to_bytes(&line[..]);
 
-        let mut blocks: Vec<&[u8]> = Vec::new();
+        let mut blocks: Vec<&[u8]> = Vec::with_capacity(line_bytes.len() / 16);
 
         for block in line_bytes.chunks(16) {
             {
