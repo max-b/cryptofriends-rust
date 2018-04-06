@@ -11,6 +11,7 @@ use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::fs::File;
 use crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
+use rand::distributions::{IndependentSample, Range};
 use rand::{OsRng, Rng};
 
 pub fn xor(buf1: &[u8], buf2: &[u8]) -> Vec<u8> {
@@ -372,6 +373,18 @@ pub fn cbc_encrypt(key: &[u8], plaintext: &[u8], iv: &[u8]) -> Vec<u8> {
     }
 
     encrypted
+}
+
+pub fn random_size_bytes() -> Vec<u8> {
+
+    let mut rng = match OsRng::new() {
+        Ok(g) => g,
+        Err(e) => panic!("Failed to obtain OS RNG: {}", e)
+    };
+
+    let size = Range::new(0, 256);
+
+    random_bytes(size.ind_sample(&mut rng))
 }
 
 pub fn random_bytes(size: u32) -> Vec<u8> {

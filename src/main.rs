@@ -23,8 +23,13 @@ fn main() {
 
     // let result = encrypted_profile_for("foo@bar.co");
     // println!("encrypted profile = {:?}", result);
-    let result = cryptofriends::set_2::challenge_14_encryption_oracle("YELLOW SUBMARINE".as_bytes());
-    println!("result = {:?}", result);
+    let output1 = cryptofriends::set_2::consistent_key_encryption_oracle("YELLOW SUBMARINE".as_bytes());
+    println!("output1 = {:?}", output1);
+    println!("output1 len = {:?}", output1.len());
+
+    let output2 = cryptofriends::set_2::challenge_14_encryption_oracle("YELLOW SUBMARINE".as_bytes());
+    println!("output2 = {:?}", output2);
+    println!("output2 len = {:?}", output2.len());
 }
 
 
