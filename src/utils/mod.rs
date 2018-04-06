@@ -272,6 +272,29 @@ pub fn pkcs_7_unpad(input: &[u8]) -> Vec<u8> {
     input[..input.len() - amount_padded as usize].to_vec()
 }
 
+pub fn strip_pkcs_padding(input: &[u8]) -> Result<Vec<u8>, &'static str> {
+
+    let last = match input.last() {
+       None => return Err("input must be nonzero length"),
+       Some(&l) => l,
+    };
+
+    if last as usize > input.len() {
+        return Err("Invalid pkcs")
+    }
+
+    let mut padding = Vec::new();
+    padding.extend_from_slice(&input[input.len() - last as usize..]);
+
+    for i in padding {
+        if i != last {
+            return Err("Invalid pkcs")
+        }
+    }
+
+    Ok(pkcs_7_unpad(input))
+}
+
 pub fn ecb_decrypt(key: &[u8], ciphertext: &[u8]) -> Vec<u8> {
 
     let decryptor = aessafe::AesSafe128Decryptor::new(&key);

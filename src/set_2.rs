@@ -447,4 +447,25 @@ mod tests {
         println!("solved len = {:?}", solved_plaintext.len());
         assert!(solved_plaintext.contains("With my rag-top down so my hair can blow"));
     }
+
+
+    #[test]
+    fn challenge_15() {
+        let valid = "ICE ICE BABY\x04\x04\x04\x04".as_bytes();
+        assert_eq!(utils::strip_pkcs_padding(valid), Ok(Vec::from("ICE ICE BABY")));
+
+        let valid2 = "ICE \x04\x04\x04\x04".as_bytes();
+        assert_eq!(utils::strip_pkcs_padding(valid2), Ok(Vec::from("ICE ")));
+
+        let invalid1 = "ICE ICE BABY\x05\x05\x05\x05".as_bytes();
+        assert_eq!(utils::strip_pkcs_padding(invalid1), Err("Invalid pkcs"));
+
+        let invalid2 = "ICE ICE BABY\x01\x02\x03\x04".as_bytes();
+        assert_eq!(utils::strip_pkcs_padding(invalid2), Err("Invalid pkcs"));
+
+        let invalid3 = "RANDOM NON ICE STRING WITHOUT PADDING".as_bytes();
+        assert_eq!(utils::strip_pkcs_padding(invalid3), Err("Invalid pkcs"));
+    }
+
+
 }
