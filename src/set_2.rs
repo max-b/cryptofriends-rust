@@ -174,6 +174,45 @@ pub fn find_block_size(oracle: &Fn(&[u8]) -> Vec<u8>) -> usize {
     block_size
 }
 
+pub fn challenge_16_encrypt(input: &str) -> Vec<u8> {
+    let iv: Vec<u8> = vec![0; 16];
+
+    let mut quoted_input = str::replace(input, ";", "\";\"");
+    quoted_input = str::replace(&quoted_input[..], "=", "\"=\"");
+
+    let input_bytes = quoted_input.as_bytes();
+    let prepend_bytes = "comment1=cooking%20MCs;userdata=".as_bytes();
+    let append_bytes = ";comment2=%20like%20a%20pound%20of%20bacon".as_bytes();
+
+    let mut plaintext = Vec::new();
+
+    plaintext.extend_from_slice(&prepend_bytes[..]);
+    plaintext.extend_from_slice(&input_bytes[..]);
+    plaintext.extend_from_slice(&append_bytes[..]);
+
+    CONSISTENT_RANDOM_KEY.with(|k| {
+        utils::cbc_encrypt(&k[..], &plaintext[..], &iv[..])
+    })
+}
+
+pub fn challenge_16_decrypt_and_check(ciphertext: &[u8]) -> bool {
+    let iv: Vec<u8> = vec![0; 16];
+
+    let mut plaintext = Vec::new();
+
+    CONSISTENT_RANDOM_KEY.with(|k| {
+        plaintext = utils::cbc_decrypt(&k[..], &ciphertext[..], &iv[..]);
+    });
+
+    let plaintext_string = String::from_utf8_lossy(&plaintext);
+
+    if let Some(_) = plaintext_string.find(";admin=true;") {
+        true
+    } else {
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -467,5 +506,19 @@ mod tests {
         assert_eq!(utils::strip_pkcs_padding(invalid3), Err("Invalid pkcs"));
     }
 
+    #[test]
+    fn challenge_16() {
+        let encrypted = challenge_16_encrypt("testing 123;admin=true;blah");
+        let decrypted_contains_admin = challenge_16_decrypt_and_check(&encrypted[..]);
+        assert!(!decrypted_contains_admin);
+
+        // prepend string is 32 bytes
+        let mut encrypted = challenge_16_encrypt("\x00admin\x00true");
+        encrypted[16] ^= 59; // ascii ";"
+        encrypted[22] ^= 61; // ascii "="
+
+        let decrypted_contains_admin = challenge_16_decrypt_and_check(&encrypted[..]);
+        assert!(decrypted_contains_admin);
+    }
 
 }
