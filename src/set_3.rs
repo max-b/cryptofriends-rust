@@ -160,4 +160,21 @@ mod tests {
             assert_eq!(&padded_plaintext[..], &result[..]);
         }
     }
+
+    #[test]
+    fn challenge_18() {
+        let base64_challenge_ciphertext_string = "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==";
+        let challenge_ciphertext = utils::base64_to_bytes(&base64_challenge_ciphertext_string);
+        let key = "YELLOW SUBMARINE".as_bytes();
+        let nonce: Vec<u8> = vec![0; 8];
+
+        let result = utils::aes_ctr(&key[..], &challenge_ciphertext[..], &nonce[..]);
+
+        println!("result = {:?}", result);
+        let plaintext_string_result = String::from_utf8_lossy(&result[..]);
+        println!("plaintext_string_result = {:?}", plaintext_string_result);
+        let actual_plaintext_string_result = "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby ";
+
+        assert_eq!(&actual_plaintext_string_result[..], &plaintext_string_result[..]);
+    }
 }

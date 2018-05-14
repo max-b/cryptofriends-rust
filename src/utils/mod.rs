@@ -4,14 +4,15 @@ use std::str;
 use std::collections::HashMap;
 use itertools::Itertools;
 use base64::{encode, decode};
-use crypto::aessafe;
 use std::io::prelude::*;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::fs::File;
+use crypto::aessafe;
 use crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
 use rand::distributions::{IndependentSample, Range};
 use rand::{OsRng, Rng};
+use byteorder::{WriteBytesExt, LittleEndian};
 
 pub fn xor(buf1: &[u8], buf2: &[u8]) -> Vec<u8> {
     assert_eq!(buf1.len(), buf2.len());
@@ -401,6 +402,30 @@ pub fn cbc_encrypt(key: &[u8], plaintext: &[u8], iv: &[u8]) -> Vec<u8> {
     encrypted
 }
 
+pub fn aes_ctr(key: &[u8], input: &[u8], nonce: &[u8]) -> Vec<u8> {
+    let block_size = key.len();
+    let mut count: u64 = 0;
+    let encryptor = aessafe::AesSafe128Encryptor::new(&key);
+
+    let mut output = Vec::new();
+
+    let input_blocks = input.chunks(block_size);
+
+    let mut keystream = vec![0; block_size];
+    for block in input_blocks {
+        let mut nonce_count = Vec::new();
+        nonce_count.extend_from_slice(&nonce[..]);
+        nonce_count.write_u64::<LittleEndian>(count).expect("Error writing count as u64 -> little endian bytes.");
+
+        encryptor.encrypt_block(&nonce_count[..], &mut keystream[..]);
+
+        let xor_result = xor(&keystream[0..block.len()], &block[..]);
+        output.extend_from_slice(&xor_result[..]);
+        count += 1;
+    }
+    output
+}
+
 pub fn random_size_bytes() -> Vec<u8> {
 
     let mut rng = match OsRng::new() {
@@ -433,8 +458,6 @@ pub fn generate_random_aes_key() -> Vec<u8> {
     random_bytes(16)
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -445,4 +468,3 @@ mod tests {
         assert_eq!(distance, 37);
     }
 }
-
