@@ -32,7 +32,7 @@ pub fn aes_cbc() -> String {
     let key = "YELLOW SUBMARINE".as_bytes();
     let iv = [0u8; 16];
 
-    let decrypted = utils::cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]);
+    let decrypted = utils::cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]).expect("Error cbc decrypting");
 
     let decrypted = str::from_utf8(&decrypted).expect("Error converting decrypted bytes to string");
 
@@ -201,7 +201,7 @@ pub fn challenge_16_decrypt_and_check(ciphertext: &[u8]) -> bool {
     let mut plaintext = Vec::new();
 
     CONSISTENT_RANDOM_KEY.with(|k| {
-        plaintext = utils::cbc_decrypt(&k[..], &ciphertext[..], &iv[..]);
+        plaintext = utils::cbc_decrypt(&k[..], &ciphertext[..], &iv[..]).expect("Error cbc decrypting");
     });
 
     let plaintext_string = String::from_utf8_lossy(&plaintext);
@@ -252,7 +252,7 @@ mod tests {
         let key = "YELLOW SUBMARINE".as_bytes();
         let iv: Vec<u8> = vec![0; 16];
 
-        let decrypted = utils::cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]);
+        let decrypted = utils::cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]).expect("Error cbc decrypting");
 
         let encrypted = utils::cbc_encrypt(key, &decrypted[..], &iv[..]);
 
@@ -269,7 +269,7 @@ mod tests {
 
         let encrypted = utils::cbc_encrypt(key, &plaintext_bytes[..], &iv[..]);
 
-        let decrypted = utils::cbc_decrypt(key, &encrypted[..], &iv[..]);
+        let decrypted = utils::cbc_decrypt(key, &encrypted[..], &iv[..]).expect("Error cbc decrypting");
 
         assert_eq!(decrypted[..plaintext_bytes.len()], plaintext_bytes[..]);
     }

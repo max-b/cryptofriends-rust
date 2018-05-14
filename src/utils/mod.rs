@@ -2,7 +2,6 @@ use std::u8;
 use std::f64;
 use std::str;
 use std::collections::HashMap;
-use std::ascii::AsciiExt;
 use itertools::Itertools;
 use base64::{encode, decode};
 use crypto::aessafe;
@@ -248,8 +247,6 @@ pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
 }
 
 pub fn pkcs_7_pad(input: &[u8], size: usize) -> Vec<u8> {
-    let mut padded = input.to_vec();
-
     let mut difference = if input.len() < size {
         size - input.len()
     } else {
@@ -260,8 +257,14 @@ pub fn pkcs_7_pad(input: &[u8], size: usize) -> Vec<u8> {
         difference = size;
     }
 
-    for _ in 0..difference {
-        padded.push(difference as u8);
+    pad_bytes(input, difference as u8, difference)
+}
+
+pub fn pad_bytes(input: &[u8], byte: u8, num: usize) -> Vec<u8> {
+    let mut padded = input.to_vec();
+
+    for _ in 0..num {
+        padded.push(byte);
     }
 
     padded
@@ -279,7 +282,7 @@ pub fn strip_pkcs_padding(input: &[u8]) -> Result<Vec<u8>, &'static str> {
        Some(&l) => l,
     };
 
-    if last as usize > input.len() {
+    if last as usize > input.len() || last == 0 {
         return Err("Invalid pkcs")
     }
 
@@ -332,7 +335,7 @@ pub fn ecb_encrypt(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
     encrypted
 }
 
-pub fn cbc_decrypt(key: &[u8], ciphertext: &[u8], iv: &[u8]) -> Vec<u8> {
+pub fn cbc_decrypt(key: &[u8], ciphertext: &[u8], iv: &[u8]) -> Result<Vec<u8>, &'static str> {
 
     let decryptor = aessafe::AesSafe128Decryptor::new(&key);
 
@@ -364,7 +367,7 @@ pub fn cbc_decrypt(key: &[u8], ciphertext: &[u8], iv: &[u8]) -> Vec<u8> {
         chunk_index += block_size;
     }
 
-    pkcs_7_unpad(&decrypted[..])
+    strip_pkcs_padding(&decrypted[..])
 }
 
 pub fn cbc_encrypt(key: &[u8], plaintext: &[u8], iv: &[u8]) -> Vec<u8> {
