@@ -35,7 +35,7 @@ pub fn challenge_17_encrypt(string_num: Option<usize>) -> (Vec<u8>, Vec<u8>, Vec
     };
 
     let chosen_string: &String = strings.get(num).unwrap();
-    let plaintext = Vec::from((*chosen_string).as_bytes());
+    let plaintext = utils::base64_to_bytes(chosen_string);
 
     let iv: Vec<u8> = vec![0; 16];
 
