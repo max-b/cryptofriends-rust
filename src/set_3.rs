@@ -40,7 +40,7 @@ pub fn challenge_17_encrypt(string_num: Option<usize>) -> (Vec<u8>, Vec<u8>, Vec
     let iv: Vec<u8> = vec![0; 16];
 
     CONSISTENT_RANDOM_KEY.with(|k| {
-        (utils::cbc_encrypt(&k[..], &plaintext[..], &iv[..]), iv, plaintext) 
+        (utils::cbc_encrypt(&k[..], &plaintext[..], &iv[..]), iv, plaintext)
     })
 }
 
@@ -131,12 +131,71 @@ pub fn exploit_padding_oracle(oracle: &Fn(&[u8], &[u8]) -> bool, ciphertext: &[u
                     println!("No valid option found...");
                 }
             }
-        } 
+        }
         plaintext.extend_from_slice(&plaintext_block[..]);
     }
 
     plaintext
 }
+
+pub fn reused_nonce_encrypt_strings(filename: &str) -> (Vec<Vec<u8>>, Vec<u8>, Vec<u8>) {
+    let mut strings_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    strings_path.push("data");
+    strings_path.push("set_3");
+    strings_path.push(filename);
+
+    let strings_file = File::open(&strings_path).expect("Error reading strings file.");
+
+    let strings_file_as_reader = BufReader::new(strings_file);
+
+    let nonce: Vec<u8> = vec![0; 8];
+
+    CONSISTENT_RANDOM_KEY.with(|k| {
+        let strings: Vec<_> = strings_file_as_reader.lines().map(|l| {
+            let string = utils::base64_to_bytes(&l.unwrap()[..]);
+            let result = utils::aes_ctr(&k[..], &string[..], &nonce[..]);
+            result
+        }).collect();
+        (strings, nonce, k.clone())
+    })
+}
+
+pub fn break_repeated_nonce_statistically(ciphertext_list: &[Vec<u8>]) -> Vec<u8> {
+    let mut result = Vec::from(ciphertext_list);
+
+    let min_ciphertext_len = result.iter().min_by(|x, y| x.len().cmp(&y.len())).unwrap().len();
+
+    for ciphertext in &mut result {
+        ciphertext.truncate(min_ciphertext_len);
+    }
+
+    let mut transposed: Vec<Vec<u8>> = vec![vec![]; min_ciphertext_len];
+    for string in &result {
+        for i in 0..string.len() {
+            let item = string[i];
+            transposed[i].push(item);
+        }
+    }
+
+    let mut key_vector: Vec<u8> = Vec::new();
+
+    for block in transposed {
+        if let Ok((_, _, key)) = utils::word_scorer_bytes(&block[..]) {
+            key_vector.push(key);
+        } else {
+            print!("Can't run word scorer on this block..");
+        }
+    }
+
+    let flattened_strings: Vec<u8> = result.into_iter().flat_map(|s| s).collect();
+
+
+
+    let decrypted_buf = utils::repeating_key_xor(&flattened_strings[..], &key_vector[..]);
+    decrypted_buf
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -176,5 +235,26 @@ mod tests {
         let actual_plaintext_string_result = "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby ";
 
         assert_eq!(&actual_plaintext_string_result[..], &plaintext_string_result[..]);
+    }
+
+    #[test]
+    fn challenge_19() {
+        let (result, _nonce, _actual_key) = reused_nonce_encrypt_strings("19.txt");
+
+        println!("result = {:?}", result);
+        println!("result len = {}", result.len());
+    }
+
+    #[test]
+    fn challenge_20() {
+        let (result, _nonce, _actual_key) = reused_nonce_encrypt_strings("20.txt");
+
+        let actual_plaintext_string_snippet = "i\'m rated \"R\"...this is a warning, ya better void / Pcuz I came back to attack others in spite- / Strike lbut don\'t be afraid in the dark, in a park / Not a scya tremble like a alcoholic, muscles tighten up / Whasuddenly you feel like your in a horror flick / You gmusic\'s the clue, when I come your warned / Apocalypshaven\'t you ever heard of a MC-murderer? / This is thdeath wish, so come on, step to this / Hysterical idefriday the thirteenth, walking down Elm Street / You this is off limits, so your visions are blurry / All terror in the styles, never error-files / Indeed I\'m for those that oppose to be level or next to this / Iworse than a nightmare, you don\'t have to sleep a winflashbacks interfere, ya start to hear: / The R-A-K-Ithen the beat is hysterical / That makes Eric go get soon the lyrical format is superior / Faces of death mC\'s decaying, cuz they never stayed / The scene of athe fiend of a rhyme on the mic that you know / It\'s melodies-unmakable, pattern-unescapable / A horn if wi bless the child, the earth, the gods and bomb the rhazardous to your health so be friendly";
+
+        let plaintext_result = break_repeated_nonce_statistically(&result[..]);
+        let plaintext_string_result = String::from_utf8_lossy(&plaintext_result[..]);
+        println!("plaintext_string_result = {:?}", plaintext_string_result);
+        assert!(plaintext_string_result.contains(actual_plaintext_string_snippet));
+
     }
 }
