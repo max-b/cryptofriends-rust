@@ -5,7 +5,10 @@ use std::io::prelude::*;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::fs::File;
-use utils;
+use utils::files::{read_base64_file_as_bytes};
+use utils::bytes::*;
+use utils::misc::*;
+use utils::crypto::{ecb_decrypt};
 
 pub fn detect_single_char_xor() -> String {
     let mut strings_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -21,7 +24,7 @@ pub fn detect_single_char_xor() -> String {
     let mut best_decoded = String::from("");
 
     for line in strings_file_as_reader.lines() {
-        match utils::word_scorer_string(&line.expect("error reading line")) {
+        match word_scorer_string(&line.expect("error reading line")) {
             Ok((decoded, score, _)) => {
 
                 if let Some(best) = best_score {
@@ -53,7 +56,7 @@ pub fn challenge_6() -> String {
     ciphertext_path.push("set_1");
     ciphertext_path.push("6.txt");
 
-    let base64_decoded_ciphertext = utils::read_base64_file_as_bytes(&ciphertext_path);
+    let base64_decoded_ciphertext = read_base64_file_as_bytes(&ciphertext_path);
 
     match break_repeating_xor(&base64_decoded_ciphertext) {
         Ok(result) => result,
@@ -62,7 +65,7 @@ pub fn challenge_6() -> String {
 }
 
 pub fn break_repeating_xor(ciphertext: &Vec<u8>) -> Result<String, Error>  {
-    let keysize = utils::find_keysize(&ciphertext).unwrap();
+    let keysize = find_keysize(&ciphertext).unwrap();
 
     let mut transposed: Vec<Vec<u8>> = vec![vec![]; keysize];
     for slice in ciphertext.chunks(keysize) {
@@ -77,14 +80,14 @@ pub fn break_repeating_xor(ciphertext: &Vec<u8>) -> Result<String, Error>  {
     let mut key_vector: Vec<u8> = Vec::new();
 
     for block in transposed {
-        if let Ok((_, _, key)) = utils::word_scorer_bytes(&block[..]) {
+        if let Ok((_, _, key)) = word_scorer_bytes(&block[..]) {
             key_vector.push(key);
         } else {
             return Err(Error::new(ErrorKind::InvalidData, "Can't run word_scorer on this block"));
         }
     }
 
-    let decrypted_buf = utils::repeating_key_xor(&ciphertext , &key_vector[..]);
+    let decrypted_buf = repeating_key_xor(&ciphertext , &key_vector[..]);
 
     let decrypted_string = &str::from_utf8(&decrypted_buf).expect("Error converting decrypted buffer to string");
 
@@ -97,11 +100,11 @@ pub fn aes_ecb() -> String {
     ciphertext_path.push("set_1");
     ciphertext_path.push("7.txt");
 
-    let base64_decoded_ciphertext = utils::read_base64_file_as_bytes(&ciphertext_path);
+    let base64_decoded_ciphertext = read_base64_file_as_bytes(&ciphertext_path);
 
     let key = "YELLOW SUBMARINE".as_bytes();
 
-    let decrypted = utils::ecb_decrypt(key, &base64_decoded_ciphertext);
+    let decrypted = ecb_decrypt(key, &base64_decoded_ciphertext);
 
     let decrypted = str::from_utf8(&decrypted).expect("Error converting decrypted bytes to string");
 
@@ -122,7 +125,7 @@ pub fn detect_aes_ecb() -> Option<String> {
     for line in strings_file_as_reader.lines() {
 
         let line = line.unwrap();
-        let line_bytes = utils::hex_to_bytes(&line[..]);
+        let line_bytes = hex_to_bytes(&line[..]);
 
         let mut blocks: Vec<&[u8]> = Vec::with_capacity(line_bytes.len() / 16);
 
@@ -145,6 +148,7 @@ pub fn detect_aes_ecb() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use utils::crypto::{ecb_encrypt};
 
     struct Setup {
         decryption_answer: String,
@@ -241,7 +245,7 @@ Play that funky music").replace("\n", "").replace(" ", "");
     #[test]
     fn challenge_1() {
         let hex = "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d";
-        let base64_encoded = utils::hex_to_base64(hex);
+        let base64_encoded = hex_to_base64(hex);
         let answer_bytes = "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t";
         assert_eq!(base64_encoded, answer_bytes);
     }
@@ -250,7 +254,7 @@ Play that funky music").replace("\n", "").replace(" ", "");
     fn challenge_2() {
         let hex1 = "1c0111001f010100061a024b53535009181c";
         let hex2 = "686974207468652062756c6c277320657965";
-        let xor_result = utils::xor_hex_strings(hex1, hex2);
+        let xor_result = xor_hex_strings(hex1, hex2);
         let answer_bytes = "746865206b696420646f6e277420706c6179";
         assert_eq!(xor_result, answer_bytes);
     }
@@ -258,7 +262,7 @@ Play that funky music").replace("\n", "").replace(" ", "");
     #[test]
     fn challenge_3() {
         let hex = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736";
-        let (decode_result, _, _) = utils::word_scorer_string(hex).unwrap();
+        let (decode_result, _, _) = word_scorer_string(hex).unwrap();
         let decoded_answer = "Cooking MC's like a pound of bacon";
         assert_eq!(decode_result, decoded_answer);
     }
@@ -273,8 +277,8 @@ Play that funky music").replace("\n", "").replace(" ", "");
     #[test]
     fn challenge_5() {
         let plaintext = "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
-        let repeated_xor_bytes = utils::repeating_key_xor(&(plaintext.as_bytes()), &(String::from("ICE").as_bytes()));
-        let repeated_xor_string = utils::bytes_to_hex(&repeated_xor_bytes);
+        let repeated_xor_bytes = repeating_key_xor(&(plaintext.as_bytes()), &(String::from("ICE").as_bytes()));
+        let repeated_xor_string = bytes_to_hex(&repeated_xor_bytes);
         let encrypted_answer = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f";
         assert_eq!(repeated_xor_string, encrypted_answer);
     }
@@ -297,21 +301,20 @@ Play that funky music").replace("\n", "").replace(" ", "");
         assert_eq!(decrypted, setup.decryption_answer);
     }
 
-
     #[test]
-    fn ecb_encrypt() {
+    fn ecb_encrypt_valid() {
         let mut ciphertext_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         ciphertext_path.push("data");
         ciphertext_path.push("set_1");
         ciphertext_path.push("7.txt");
 
-        let base64_decoded_ciphertext: Vec<u8> = utils::read_base64_file_as_bytes(&ciphertext_path);
+        let base64_decoded_ciphertext: Vec<u8> = read_base64_file_as_bytes(&ciphertext_path);
 
         let key = "YELLOW SUBMARINE".as_bytes();
 
-        let decrypted: Vec<u8> = utils::ecb_decrypt(key, &base64_decoded_ciphertext);
+        let decrypted: Vec<u8> = ecb_decrypt(key, &base64_decoded_ciphertext);
 
-        let encrypted: Vec<u8> = utils::ecb_encrypt(key, &decrypted[..]);
+        let encrypted: Vec<u8> = ecb_encrypt(key, &decrypted[..]);
 
         assert_eq!(&encrypted[..], &base64_decoded_ciphertext[..]);
     }

@@ -1,5 +1,7 @@
 use std::str;
-use utils;
+use utils::bytes::*;
+use utils::files::*;
+use utils::crypto::{cbc_encrypt, cbc_decrypt, ecb_encrypt, ecb_decrypt, pkcs_7_pad};
 use std::path::PathBuf;
 use rand::distributions::{IndependentSample, Range};
 use rand::{OsRng, Rng};
@@ -11,7 +13,7 @@ pub fn pkcs_7_pad_string(input: &str, size: usize) -> String {
     let input = String::from(input);
     let input_as_bytes = input.as_bytes();
 
-    let padded_bytes = utils::pkcs_7_pad(input_as_bytes, size);
+    let padded_bytes = pkcs_7_pad(input_as_bytes, size);
 
     match str::from_utf8(&padded_bytes) {
         Ok(string) => {
@@ -27,12 +29,12 @@ pub fn aes_cbc() -> String {
     ciphertext_path.push("set_2");
     ciphertext_path.push("10.txt");
 
-    let base64_decoded_ciphertext = utils::read_base64_file_as_bytes(&ciphertext_path);
+    let base64_decoded_ciphertext = read_base64_file_as_bytes(&ciphertext_path);
 
     let key = "YELLOW SUBMARINE".as_bytes();
     let iv = [0u8; 16];
 
-    let decrypted = utils::cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]).expect("Error cbc decrypting");
+    let decrypted = cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]).expect("Error cbc decrypting");
 
     let decrypted = str::from_utf8(&decrypted).expect("Error converting decrypted bytes to string");
 
@@ -46,7 +48,7 @@ pub enum EncryptionType {
 }
 
 pub fn random_key_encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionType) {
-    let random_key = utils::generate_random_aes_key();
+    let random_key = generate_random_aes_key();
 
     let mut rng = match OsRng::new() {
         Ok(g) => g,
@@ -54,46 +56,46 @@ pub fn random_key_encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionTyp
     };
 
     let junk_size = Range::new(5, 11);
-    let left_junk = utils::random_bytes(junk_size.ind_sample(&mut rng));
-    let right_junk = utils::random_bytes(junk_size.ind_sample(&mut rng));
+    let left_junk = random_bytes(junk_size.ind_sample(&mut rng));
+    let right_junk = random_bytes(junk_size.ind_sample(&mut rng));
 
     let mut junked_plaintext = Vec::new();
     junked_plaintext.extend_from_slice(&left_junk[..]);
     junked_plaintext.extend_from_slice(plaintext);
     junked_plaintext.extend_from_slice(&right_junk[..]);
 
-    let random_iv = utils::random_bytes(16);
+    let random_iv = random_bytes(16);
 
     let use_cbc = rng.gen();
 
     if use_cbc {
-        (utils::cbc_encrypt(&random_key[..], &junked_plaintext[..], &random_iv[..]), EncryptionType::CBC)
+        (cbc_encrypt(&random_key[..], &junked_plaintext[..], &random_iv[..]), EncryptionType::CBC)
     } else {
-        (utils::ecb_encrypt(&random_key[..], &junked_plaintext[..]), EncryptionType::ECB)
+        (ecb_encrypt(&random_key[..], &junked_plaintext[..]), EncryptionType::ECB)
     }
 }
 
-thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = utils::generate_random_aes_key());
+thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = generate_random_aes_key());
 
 pub fn consistent_key_encryption_oracle(plaintext: &[u8]) -> Vec<u8> {
     let append_string = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK";
 
-    let append_bytes = utils::base64_to_bytes(append_string);
+    let append_bytes = base64_to_bytes(append_string);
 
     let mut appended_plaintext: Vec<u8> = plaintext.to_vec();
     appended_plaintext.extend_from_slice(&append_bytes[..]);
 
     CONSISTENT_RANDOM_KEY.with(|k| {
-        utils::ecb_encrypt(&k[..], &appended_plaintext[..])
+        ecb_encrypt(&k[..], &appended_plaintext[..])
     })
 }
 
-thread_local!(static CONSISTENT_RANDOM_PREFIX: Vec<u8> = utils::random_size_bytes());
+thread_local!(static CONSISTENT_RANDOM_PREFIX: Vec<u8> = random_size_bytes());
 
 pub fn challenge_14_encryption_oracle(input_plaintext: &[u8]) -> Vec<u8> {
     let append_string = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK";
 
-    let append_bytes = utils::base64_to_bytes(append_string);
+    let append_bytes = base64_to_bytes(append_string);
 
     let mut plaintext = Vec::new();
 
@@ -105,7 +107,7 @@ pub fn challenge_14_encryption_oracle(input_plaintext: &[u8]) -> Vec<u8> {
     plaintext.extend_from_slice(&append_bytes[..]);
 
     CONSISTENT_RANDOM_KEY.with(|k| {
-        utils::ecb_encrypt(&k[..], &plaintext[..])
+        ecb_encrypt(&k[..], &plaintext[..])
     })
 }
 
@@ -137,14 +139,14 @@ pub fn encrypted_profile_for(s: &str) -> Vec<u8> {
     let plaintext_bytes = plaintext.as_bytes();
 
     CONSISTENT_RANDOM_KEY.with(|k| {
-        utils::ecb_encrypt(&k[..], &plaintext_bytes[..])
+        ecb_encrypt(&k[..], &plaintext_bytes[..])
     })
 }
 
 pub fn decrypt_and_parse_profile(ciphertext: &[u8]) -> Vec<(String, String)> {
 
     CONSISTENT_RANDOM_KEY.with(|k| {
-        let plaintext_bytes = utils::ecb_decrypt(&k[..], &ciphertext[..]);
+        let plaintext_bytes = ecb_decrypt(&k[..], &ciphertext[..]);
         let plaintext = str::from_utf8(&plaintext_bytes).expect("Cannot create string from decrypted plaintext bytes.").trim();
         key_value_parser(&plaintext[..])
     })
@@ -191,7 +193,7 @@ pub fn challenge_16_encrypt(input: &str) -> Vec<u8> {
     plaintext.extend_from_slice(&append_bytes[..]);
 
     CONSISTENT_RANDOM_KEY.with(|k| {
-        utils::cbc_encrypt(&k[..], &plaintext[..], &iv[..])
+        cbc_encrypt(&k[..], &plaintext[..], &iv[..])
     })
 }
 
@@ -201,7 +203,7 @@ pub fn challenge_16_decrypt_and_check(ciphertext: &[u8]) -> bool {
     let mut plaintext = Vec::new();
 
     CONSISTENT_RANDOM_KEY.with(|k| {
-        plaintext = utils::cbc_decrypt(&k[..], &ciphertext[..], &iv[..]).expect("Error cbc decrypting");
+        plaintext = cbc_decrypt(&k[..], &ciphertext[..], &iv[..]).expect("Error cbc decrypting");
     });
 
     let plaintext_string = String::from_utf8_lossy(&plaintext);
@@ -216,6 +218,7 @@ pub fn challenge_16_decrypt_and_check(ciphertext: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use utils::crypto::{strip_pkcs_padding};
 
     #[test]
     fn challenge_9() {
@@ -247,14 +250,14 @@ mod tests {
 
         println!("{:?}", ciphertext_path);
 
-        let base64_decoded_ciphertext = utils::read_base64_file_as_bytes(&ciphertext_path);
+        let base64_decoded_ciphertext = read_base64_file_as_bytes(&ciphertext_path);
 
         let key = "YELLOW SUBMARINE".as_bytes();
         let iv: Vec<u8> = vec![0; 16];
 
-        let decrypted = utils::cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]).expect("Error cbc decrypting");
+        let decrypted = cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]).expect("Error cbc decrypting");
 
-        let encrypted = utils::cbc_encrypt(key, &decrypted[..], &iv[..]);
+        let encrypted = cbc_encrypt(key, &decrypted[..], &iv[..]);
 
         assert_eq!(&encrypted[..base64_decoded_ciphertext.len()], &base64_decoded_ciphertext[..]);
 
@@ -262,14 +265,14 @@ mod tests {
         plaintext_path.push("src");
         plaintext_path.push("set_1.rs");
 
-        let plaintext_bytes = utils::read_file_as_bytes(&plaintext_path);
+        let plaintext_bytes = read_file_as_bytes(&plaintext_path);
 
         let key = "YELLOW SUBMARINE".as_bytes();
         let iv: Vec<u8> = vec![0; 16];
 
-        let encrypted = utils::cbc_encrypt(key, &plaintext_bytes[..], &iv[..]);
+        let encrypted = cbc_encrypt(key, &plaintext_bytes[..], &iv[..]);
 
-        let decrypted = utils::cbc_decrypt(key, &encrypted[..], &iv[..]).expect("Error cbc decrypting");
+        let decrypted = cbc_decrypt(key, &encrypted[..], &iv[..]).expect("Error cbc decrypting");
 
         assert_eq!(decrypted[..plaintext_bytes.len()], plaintext_bytes[..]);
     }
@@ -487,23 +490,22 @@ mod tests {
         assert!(solved_plaintext.contains("With my rag-top down so my hair can blow"));
     }
 
-
     #[test]
     fn challenge_15() {
         let valid = "ICE ICE BABY\x04\x04\x04\x04".as_bytes();
-        assert_eq!(utils::strip_pkcs_padding(valid), Ok(Vec::from("ICE ICE BABY")));
+        assert_eq!(strip_pkcs_padding(valid), Ok(Vec::from("ICE ICE BABY")));
 
         let valid2 = "ICE \x04\x04\x04\x04".as_bytes();
-        assert_eq!(utils::strip_pkcs_padding(valid2), Ok(Vec::from("ICE ")));
+        assert_eq!(strip_pkcs_padding(valid2), Ok(Vec::from("ICE ")));
 
         let invalid1 = "ICE ICE BABY\x05\x05\x05\x05".as_bytes();
-        assert_eq!(utils::strip_pkcs_padding(invalid1), Err("Invalid pkcs"));
+        assert_eq!(strip_pkcs_padding(invalid1), Err("Invalid pkcs"));
 
         let invalid2 = "ICE ICE BABY\x01\x02\x03\x04".as_bytes();
-        assert_eq!(utils::strip_pkcs_padding(invalid2), Err("Invalid pkcs"));
+        assert_eq!(strip_pkcs_padding(invalid2), Err("Invalid pkcs"));
 
         let invalid3 = "RANDOM NON ICE STRING WITHOUT PADDING".as_bytes();
-        assert_eq!(utils::strip_pkcs_padding(invalid3), Err("Invalid pkcs"));
+        assert_eq!(strip_pkcs_padding(invalid3), Err("Invalid pkcs"));
     }
 
     #[test]

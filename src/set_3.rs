@@ -5,9 +5,11 @@ use std::fs::File;
 use rand::distributions::{IndependentSample, Range};
 use rand::{OsRng};
 use std::cmp::Ordering;
-use utils;
+use utils::bytes::*;
+use utils::misc::*;
+use utils::crypto::{aes_ctr, cbc_encrypt, cbc_decrypt};
 
-thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = utils::generate_random_aes_key());
+thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = generate_random_aes_key());
 
 pub fn challenge_17_encrypt(string_num: Option<usize>) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
     let mut strings_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -35,19 +37,19 @@ pub fn challenge_17_encrypt(string_num: Option<usize>) -> (Vec<u8>, Vec<u8>, Vec
     };
 
     let chosen_string: &String = strings.get(num).unwrap();
-    let plaintext = utils::base64_to_bytes(chosen_string);
+    let plaintext = base64_to_bytes(chosen_string);
 
     let iv: Vec<u8> = vec![0; 16];
 
     CONSISTENT_RANDOM_KEY.with(|k| {
-        (utils::cbc_encrypt(&k[..], &plaintext[..], &iv[..]), iv, plaintext)
+        (cbc_encrypt(&k[..], &plaintext[..], &iv[..]), iv, plaintext)
     })
 }
 
 pub fn challenge_17_padding_oracle(ciphertext: &[u8], iv: &[u8]) -> bool {
     let mut decrypted = None;
     CONSISTENT_RANDOM_KEY.with(|k| {
-        decrypted = Some(utils::cbc_decrypt(&k[..], &ciphertext[..], &iv[..]));
+        decrypted = Some(cbc_decrypt(&k[..], &ciphertext[..], &iv[..]));
     });
 
     let decrypted_result = decrypted.unwrap();
@@ -152,8 +154,8 @@ pub fn reused_nonce_encrypt_strings(filename: &str) -> (Vec<Vec<u8>>, Vec<u8>, V
 
     CONSISTENT_RANDOM_KEY.with(|k| {
         let strings: Vec<_> = strings_file_as_reader.lines().map(|l| {
-            let string = utils::base64_to_bytes(&l.unwrap()[..]);
-            let result = utils::aes_ctr(&k[..], &string[..], &nonce[..]);
+            let string = base64_to_bytes(&l.unwrap()[..]);
+            let result = aes_ctr(&k[..], &string[..], &nonce[..]);
             result
         }).collect();
         (strings, nonce, k.clone())
@@ -180,7 +182,7 @@ pub fn break_repeated_nonce_statistically(ciphertext_list: &[Vec<u8>]) -> Vec<u8
     let mut key_vector: Vec<u8> = Vec::new();
 
     for block in transposed {
-        if let Ok((_, _, key)) = utils::word_scorer_bytes(&block[..]) {
+        if let Ok((_, _, key)) = word_scorer_bytes(&block[..]) {
             key_vector.push(key);
         } else {
             print!("Can't run word scorer on this block..");
@@ -191,7 +193,7 @@ pub fn break_repeated_nonce_statistically(ciphertext_list: &[Vec<u8>]) -> Vec<u8
 
 
 
-    let decrypted_buf = utils::repeating_key_xor(&flattened_strings[..], &key_vector[..]);
+    let decrypted_buf = repeating_key_xor(&flattened_strings[..], &key_vector[..]);
     decrypted_buf
 }
 
@@ -199,12 +201,13 @@ pub fn break_repeated_nonce_statistically(ciphertext_list: &[Vec<u8>]) -> Vec<u8
 #[cfg(test)]
 mod tests {
     use super::*;
+    use utils::crypto::pkcs_7_pad; 
 
     #[test]
     fn challenge_17() {
         for i in 0..10 {
             let (ciphertext, iv, plaintext) = challenge_17_encrypt(Some(i));
-            let padded_plaintext = utils::pkcs_7_pad(&plaintext[..], iv.len());
+            let padded_plaintext = pkcs_7_pad(&plaintext[..], iv.len());
             let plaintext_string = String::from_utf8_lossy(&plaintext[..]).into_owned();
             let oracle_result = challenge_17_padding_oracle(&ciphertext[..], &iv[..]);
             assert!(oracle_result);
@@ -223,11 +226,11 @@ mod tests {
     #[test]
     fn challenge_18() {
         let base64_challenge_ciphertext_string = "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==";
-        let challenge_ciphertext = utils::base64_to_bytes(&base64_challenge_ciphertext_string);
+        let challenge_ciphertext = base64_to_bytes(&base64_challenge_ciphertext_string);
         let key = "YELLOW SUBMARINE".as_bytes();
         let nonce: Vec<u8> = vec![0; 8];
 
-        let result = utils::aes_ctr(&key[..], &challenge_ciphertext[..], &nonce[..]);
+        let result = aes_ctr(&key[..], &challenge_ciphertext[..], &nonce[..]);
 
         println!("result = {:?}", result);
         let plaintext_string_result = String::from_utf8_lossy(&result[..]);
@@ -249,7 +252,7 @@ mod tests {
     fn challenge_20() {
         let (result, _nonce, _actual_key) = reused_nonce_encrypt_strings("20.txt");
 
-        let actual_plaintext_string_snippet = "i\'m rated \"R\"...this is a warning, ya better void / Pcuz I came back to attack others in spite- / Strike lbut don\'t be afraid in the dark, in a park / Not a scya tremble like a alcoholic, muscles tighten up / Whasuddenly you feel like your in a horror flick / You gmusic\'s the clue, when I come your warned / Apocalypshaven\'t you ever heard of a MC-murderer? / This is thdeath wish, so come on, step to this / Hysterical idefriday the thirteenth, walking down Elm Street / You this is off limits, so your visions are blurry / All terror in the styles, never error-files / Indeed I\'m for those that oppose to be level or next to this / Iworse than a nightmare, you don\'t have to sleep a winflashbacks interfere, ya start to hear: / The R-A-K-Ithen the beat is hysterical / That makes Eric go get soon the lyrical format is superior / Faces of death mC\'s decaying, cuz they never stayed / The scene of athe fiend of a rhyme on the mic that you know / It\'s melodies-unmakable, pattern-unescapable / A horn if wi bless the child, the earth, the gods and bomb the rhazardous to your health so be friendly";
+        let actual_plaintext_string_snippet = "Yo, what happened to peace?";
 
         let plaintext_result = break_repeated_nonce_statistically(&result[..]);
         let plaintext_string_result = String::from_utf8_lossy(&plaintext_result[..]);
