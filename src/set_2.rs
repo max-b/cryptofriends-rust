@@ -1,11 +1,10 @@
-use std::str;
-use utils::bytes::*;
-use utils::files::*;
-use utils::crypto::{cbc_encrypt, cbc_decrypt, ecb_encrypt, ecb_decrypt, pkcs_7_pad};
-use std::path::PathBuf;
 use rand::distributions::{IndependentSample, Range};
 use rand::{OsRng, Rng};
-
+use std::path::PathBuf;
+use std::str;
+use utils::bytes::*;
+use utils::crypto::{cbc_decrypt, cbc_encrypt, ecb_decrypt, ecb_encrypt, pkcs_7_pad};
+use utils::files::*;
 
 pub fn pkcs_7_pad_string(input: &str, size: usize) -> String {
     assert!(input.len() <= size);
@@ -16,10 +15,8 @@ pub fn pkcs_7_pad_string(input: &str, size: usize) -> String {
     let padded_bytes = pkcs_7_pad(input_as_bytes, size);
 
     match str::from_utf8(&padded_bytes) {
-        Ok(string) => {
-            string.to_string()
-        },
-        Err(_) => { "nope".to_string() },
+        Ok(string) => string.to_string(),
+        Err(_) => "nope".to_string(),
     }
 }
 
@@ -34,14 +31,15 @@ pub fn aes_cbc() -> String {
     let key = "YELLOW SUBMARINE".as_bytes();
     let iv = [0u8; 16];
 
-    let decrypted = cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]).expect("Error cbc decrypting");
+    let decrypted =
+        cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]).expect("Error cbc decrypting");
 
     let decrypted = str::from_utf8(&decrypted).expect("Error converting decrypted bytes to string");
 
     decrypted.to_string()
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum EncryptionType {
     CBC,
     ECB,
@@ -52,7 +50,7 @@ pub fn random_key_encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionTyp
 
     let mut rng = match OsRng::new() {
         Ok(g) => g,
-        Err(e) => panic!("Failed to obtain OS RNG: {}", e)
+        Err(e) => panic!("Failed to obtain OS RNG: {}", e),
     };
 
     let junk_size = Range::new(5, 11);
@@ -69,9 +67,15 @@ pub fn random_key_encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionTyp
     let use_cbc = rng.gen();
 
     if use_cbc {
-        (cbc_encrypt(&random_key[..], &junked_plaintext[..], &random_iv[..]), EncryptionType::CBC)
+        (
+            cbc_encrypt(&random_key[..], &junked_plaintext[..], &random_iv[..]),
+            EncryptionType::CBC,
+        )
     } else {
-        (ecb_encrypt(&random_key[..], &junked_plaintext[..]), EncryptionType::ECB)
+        (
+            ecb_encrypt(&random_key[..], &junked_plaintext[..]),
+            EncryptionType::ECB,
+        )
     }
 }
 
@@ -85,9 +89,7 @@ pub fn consistent_key_encryption_oracle(plaintext: &[u8]) -> Vec<u8> {
     let mut appended_plaintext: Vec<u8> = plaintext.to_vec();
     appended_plaintext.extend_from_slice(&append_bytes[..]);
 
-    CONSISTENT_RANDOM_KEY.with(|k| {
-        ecb_encrypt(&k[..], &appended_plaintext[..])
-    })
+    CONSISTENT_RANDOM_KEY.with(|k| ecb_encrypt(&k[..], &appended_plaintext[..]))
 }
 
 thread_local!(static CONSISTENT_RANDOM_PREFIX: Vec<u8> = random_size_bytes());
@@ -106,9 +108,7 @@ pub fn challenge_14_encryption_oracle(input_plaintext: &[u8]) -> Vec<u8> {
     plaintext.extend_from_slice(&input_plaintext[..]);
     plaintext.extend_from_slice(&append_bytes[..]);
 
-    CONSISTENT_RANDOM_KEY.with(|k| {
-        ecb_encrypt(&k[..], &plaintext[..])
-    })
+    CONSISTENT_RANDOM_KEY.with(|k| ecb_encrypt(&k[..], &plaintext[..]))
 }
 
 pub fn key_value_parser(s: &str) -> Vec<(String, String)> {
@@ -138,16 +138,15 @@ pub fn encrypted_profile_for(s: &str) -> Vec<u8> {
     let plaintext = profile_for(s);
     let plaintext_bytes = plaintext.as_bytes();
 
-    CONSISTENT_RANDOM_KEY.with(|k| {
-        ecb_encrypt(&k[..], &plaintext_bytes[..])
-    })
+    CONSISTENT_RANDOM_KEY.with(|k| ecb_encrypt(&k[..], &plaintext_bytes[..]))
 }
 
 pub fn decrypt_and_parse_profile(ciphertext: &[u8]) -> Vec<(String, String)> {
-
     CONSISTENT_RANDOM_KEY.with(|k| {
         let plaintext_bytes = ecb_decrypt(&k[..], &ciphertext[..]);
-        let plaintext = str::from_utf8(&plaintext_bytes).expect("Cannot create string from decrypted plaintext bytes.").trim();
+        let plaintext = str::from_utf8(&plaintext_bytes)
+            .expect("Cannot create string from decrypted plaintext bytes.")
+            .trim();
         key_value_parser(&plaintext[..])
     })
 }
@@ -156,16 +155,16 @@ pub fn find_block_size(oracle: &Fn(&[u8]) -> Vec<u8>) -> usize {
     let mut test_plaintext = vec![b'A'; 256];
     let mut block_size = 0;
 
-    'outer: for i in 1..256 { // assume 1 < block size < 256
-        let block_for_testing = vec![b'A'; i*4];
+    'outer: for i in 1..256 {
+        // assume 1 < block size < 256
+        let block_for_testing = vec![b'A'; i * 4];
         test_plaintext.extend_from_slice(&block_for_testing[..]);
 
-        let oracle_output = oracle(&test_plaintext [..]);
+        let oracle_output = oracle(&test_plaintext[..]);
 
-        for j in 0..oracle_output.len() - ((i+1)*2) {
-
-            if &oracle_output[j..j+i+1] == &oracle_output[j+i+1..j+((i+1)*2)] {
-                block_size = i+1;
+        for j in 0..oracle_output.len() - ((i + 1) * 2) {
+            if &oracle_output[j..j + i + 1] == &oracle_output[j + i + 1..j + ((i + 1) * 2)] {
+                block_size = i + 1;
                 break 'outer;
             }
         }
@@ -192,9 +191,7 @@ pub fn challenge_16_encrypt(input: &str) -> Vec<u8> {
     plaintext.extend_from_slice(&input_bytes[..]);
     plaintext.extend_from_slice(&append_bytes[..]);
 
-    CONSISTENT_RANDOM_KEY.with(|k| {
-        cbc_encrypt(&k[..], &plaintext[..], &iv[..])
-    })
+    CONSISTENT_RANDOM_KEY.with(|k| cbc_encrypt(&k[..], &plaintext[..], &iv[..]))
 }
 
 pub fn challenge_16_decrypt_and_check(ciphertext: &[u8]) -> bool {
@@ -218,7 +215,7 @@ pub fn challenge_16_decrypt_and_check(ciphertext: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::{strip_pkcs_padding};
+    use utils::crypto::strip_pkcs_padding;
 
     #[test]
     fn challenge_9() {
@@ -231,14 +228,17 @@ mod tests {
         assert_eq!(padded_string_2.len(), 32);
     }
 
-
     #[test]
     fn challenge_10() {
         let cbc_decrypted = aes_cbc();
 
         // TODO: Do I want to copy the full text from the set_1 tests?
         // or maybe refactor all the challenge tests entirely?
-        assert!(cbc_decrypted.as_str().contains("Play that funky music white boy you say it,"));
+        assert!(
+            cbc_decrypted
+                .as_str()
+                .contains("Play that funky music white boy you say it,")
+        );
     }
 
     #[test]
@@ -255,11 +255,15 @@ mod tests {
         let key = "YELLOW SUBMARINE".as_bytes();
         let iv: Vec<u8> = vec![0; 16];
 
-        let decrypted = cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..]).expect("Error cbc decrypting");
+        let decrypted = cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..])
+            .expect("Error cbc decrypting");
 
         let encrypted = cbc_encrypt(key, &decrypted[..], &iv[..]);
 
-        assert_eq!(&encrypted[..base64_decoded_ciphertext.len()], &base64_decoded_ciphertext[..]);
+        assert_eq!(
+            &encrypted[..base64_decoded_ciphertext.len()],
+            &base64_decoded_ciphertext[..]
+        );
 
         let mut plaintext_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         plaintext_path.push("src");
@@ -279,7 +283,6 @@ mod tests {
 
     #[test]
     fn challenge_11() {
-
         for _ in 0..10 {
             let chosen_plaintext = vec![0; 64];
             let (output, encryption_type) = random_key_encryption_oracle(&chosen_plaintext[..]);
@@ -287,7 +290,7 @@ mod tests {
             let mut encryption_type_guess = None;
 
             for i in 0..output.len() - 32 {
-                if output[i..i+16] == output[i+16..i+32] {
+                if output[i..i + 16] == output[i + 16..i + 32] {
                     encryption_type_guess = Some(EncryptionType::ECB);
                 }
             }
@@ -302,7 +305,6 @@ mod tests {
 
     #[test]
     fn challenge_12() {
-
         let original_ciphertext = consistent_key_encryption_oracle(&[]);
         let len = original_ciphertext.len();
 
@@ -312,7 +314,6 @@ mod tests {
         let block_size = find_block_size(&consistent_key_encryption_oracle);
 
         while chunk_index < len {
-
             let mut discovered_block: Vec<u8> = Vec::with_capacity(block_size);
 
             for i in 0..block_size {
@@ -332,9 +333,11 @@ mod tests {
                     let byte = j as u8;
                     let len = test_plaintext.len();
                     test_plaintext[len - 1] = byte;
-                    let oracle_output_test = consistent_key_encryption_oracle(&test_plaintext [..]);
+                    let oracle_output_test = consistent_key_encryption_oracle(&test_plaintext[..]);
 
-                    if &oracle_output_1[chunk_index..chunk_index+block_size] == &oracle_output_test[chunk_index..chunk_index+block_size] {
+                    if &oracle_output_1[chunk_index..chunk_index + block_size]
+                        == &oracle_output_test[chunk_index..chunk_index + block_size]
+                    {
                         discovered_block.push(byte);
                         break;
                     }
@@ -376,7 +379,6 @@ mod tests {
 
     #[test]
     fn challenge_13() {
-
         let junk1: Vec<u8> = vec![b'A'; 10];
         let junk2: Vec<u8> = vec![b'A'; 4];
 
@@ -392,7 +394,8 @@ mod tests {
         test_bytes.extend_from_slice(&admin_with_padding[..]);
         test_bytes.extend_from_slice(&junk2[..]);
 
-        let test_plaintext = str::from_utf8(&test_bytes[..]).expect("cannot convert bytes to string");
+        let test_plaintext =
+            str::from_utf8(&test_bytes[..]).expect("cannot convert bytes to string");
 
         let ciphertext = encrypted_profile_for(test_plaintext);
 
@@ -410,10 +413,8 @@ mod tests {
         assert_eq!(decrypted, admin_parsed);
     }
 
-
     #[test]
     fn challenge_14() {
-
         let block_size = find_block_size(&challenge_14_encryption_oracle);
 
         println!("block_size = {}", block_size);
@@ -427,12 +428,12 @@ mod tests {
         let mut prefix_size = 0;
 
         'outer: while prefix_offset < 256 {
-            let chosen_plaintext = vec![0; block_size*2 + prefix_offset];
+            let chosen_plaintext = vec![0; block_size * 2 + prefix_offset];
 
             let output = challenge_14_encryption_oracle(&chosen_plaintext[..]);
 
-            for i in 0..output.len() - (block_size * 2){
-                if output[i..i+block_size] == output[i+block_size..i+(block_size*2)] {
+            for i in 0..output.len() - (block_size * 2) {
+                if output[i..i + block_size] == output[i + block_size..i + (block_size * 2)] {
                     prefix_size = i - prefix_offset;
                     break 'outer;
                 }
@@ -451,7 +452,6 @@ mod tests {
         let mut unknown_bytes: Vec<u8> = Vec::with_capacity(len);
 
         while chunk_index < len {
-
             let mut discovered_block: Vec<u8> = Vec::with_capacity(block_size);
 
             for i in 0..block_size {
@@ -471,9 +471,11 @@ mod tests {
                     let byte = j as u8;
                     let len = test_plaintext.len();
                     test_plaintext[len - 1] = byte;
-                    let oracle_output_test = challenge_14_encryption_oracle(&test_plaintext [..]);
+                    let oracle_output_test = challenge_14_encryption_oracle(&test_plaintext[..]);
 
-                    if &oracle_output_1[chunk_index..chunk_index+block_size] == &oracle_output_test[chunk_index..chunk_index+block_size] {
+                    if &oracle_output_1[chunk_index..chunk_index + block_size]
+                        == &oracle_output_test[chunk_index..chunk_index + block_size]
+                    {
                         discovered_block.push(byte);
                         break;
                     }

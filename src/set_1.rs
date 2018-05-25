@@ -1,14 +1,14 @@
-use std::u8;
-use std::str;
+use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
-use std::fs::File;
-use utils::files::{read_base64_file_as_bytes};
+use std::str;
+use std::u8;
 use utils::bytes::*;
+use utils::crypto::ecb_decrypt;
+use utils::files::read_base64_file_as_bytes;
 use utils::misc::*;
-use utils::crypto::{ecb_decrypt};
 
 pub fn detect_single_char_xor() -> String {
     let mut strings_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -26,9 +26,8 @@ pub fn detect_single_char_xor() -> String {
     for line in strings_file_as_reader.lines() {
         match word_scorer_string(&line.expect("error reading line")) {
             Ok((decoded, score, _)) => {
-
                 if let Some(best) = best_score {
-                    if score < best{
+                    if score < best {
                         best_score = Some(score);
                         best_decoded = decoded;
                     }
@@ -36,21 +35,18 @@ pub fn detect_single_char_xor() -> String {
                     best_score = Some(score);
                     best_decoded = decoded;
                 }
-            },
-            Err(_) => {},
+            }
+            Err(_) => {}
         }
     }
 
     match best_score {
         None => panic!("Word scorer wasn't able to find a single valid xored string"),
-        Some(_) => {
-            best_decoded
-        },
+        Some(_) => best_decoded,
     }
 }
 
 pub fn challenge_6() -> String {
-
     let mut ciphertext_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     ciphertext_path.push("data");
     ciphertext_path.push("set_1");
@@ -64,7 +60,7 @@ pub fn challenge_6() -> String {
     }
 }
 
-pub fn break_repeating_xor(ciphertext: &Vec<u8>) -> Result<String, Error>  {
+pub fn break_repeating_xor(ciphertext: &Vec<u8>) -> Result<String, Error> {
     let keysize = find_keysize(&ciphertext).unwrap();
 
     let mut transposed: Vec<Vec<u8>> = vec![vec![]; keysize];
@@ -83,13 +79,17 @@ pub fn break_repeating_xor(ciphertext: &Vec<u8>) -> Result<String, Error>  {
         if let Ok((_, _, key)) = word_scorer_bytes(&block[..]) {
             key_vector.push(key);
         } else {
-            return Err(Error::new(ErrorKind::InvalidData, "Can't run word_scorer on this block"));
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Can't run word_scorer on this block",
+            ));
         }
     }
 
-    let decrypted_buf = repeating_key_xor(&ciphertext , &key_vector[..]);
+    let decrypted_buf = repeating_key_xor(&ciphertext, &key_vector[..]);
 
-    let decrypted_string = &str::from_utf8(&decrypted_buf).expect("Error converting decrypted buffer to string");
+    let decrypted_string =
+        &str::from_utf8(&decrypted_buf).expect("Error converting decrypted buffer to string");
 
     Ok(decrypted_string.to_string())
 }
@@ -112,7 +112,6 @@ pub fn aes_ecb() -> String {
 }
 
 pub fn detect_aes_ecb() -> Option<String> {
-
     let mut strings_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     strings_path.push("data");
     strings_path.push("set_1");
@@ -123,7 +122,6 @@ pub fn detect_aes_ecb() -> Option<String> {
     let strings_file_as_reader = BufReader::new(strings_file);
 
     for line in strings_file_as_reader.lines() {
-
         let line = line.unwrap();
         let line_bytes = hex_to_bytes(&line[..]);
 
@@ -134,7 +132,7 @@ pub fn detect_aes_ecb() -> Option<String> {
                 let mut iter = blocks.iter_mut();
 
                 if iter.any(|&mut x| block == x) {
-                    return Some(line)
+                    return Some(line);
                 }
             }
 
@@ -148,7 +146,7 @@ pub fn detect_aes_ecb() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::{ecb_encrypt};
+    use utils::crypto::ecb_encrypt;
 
     struct Setup {
         decryption_answer: String,
@@ -156,7 +154,8 @@ mod tests {
 
     impl Setup {
         fn new() -> Self {
-            let answer = String::from("I'm back and I'm ringin' the bell
+            let answer = String::from(
+                "I'm back and I'm ringin' the bell
 A rockin' on the mike while the fly girls yell
 In ecstasy in the back of me
 Well that's my DJ Deshay cuttin' all them Z's
@@ -234,7 +233,9 @@ Play that funky music Come on, Come on, let me hear
 Play that funky music white boy you say it, say it
 Play that funky music A little louder now
 Play that funky music, white boy Come on, Come on, Come on
-Play that funky music").replace("\n", "").replace(" ", "");
+Play that funky music",
+            ).replace("\n", "")
+                .replace(" ", "");
 
             Self {
                 decryption_answer: answer,
@@ -276,8 +277,10 @@ Play that funky music").replace("\n", "").replace(" ", "");
 
     #[test]
     fn challenge_5() {
-        let plaintext = "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
-        let repeated_xor_bytes = repeating_key_xor(&(plaintext.as_bytes()), &(String::from("ICE").as_bytes()));
+        let plaintext =
+            "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
+        let repeated_xor_bytes =
+            repeating_key_xor(&(plaintext.as_bytes()), &(String::from("ICE").as_bytes()));
         let repeated_xor_string = bytes_to_hex(&repeated_xor_bytes);
         let encrypted_answer = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f";
         assert_eq!(repeated_xor_string, encrypted_answer);

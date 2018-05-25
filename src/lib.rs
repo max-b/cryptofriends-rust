@@ -1,9 +1,8 @@
-extern crate crypto;
-extern crate rand;
-extern crate itertools;
 extern crate base64;
 extern crate byteorder;
-
+extern crate crypto;
+extern crate itertools;
+extern crate rand;
 
 pub mod utils;
 

@@ -1,13 +1,11 @@
-use std::str;
+use super::bytes::{hex_to_bytes, single_xor, xor};
+use itertools::Itertools;
+use std::collections::HashMap;
 use std::f64;
 use std::io::{Error, ErrorKind};
-use std::collections::HashMap;
-use itertools::Itertools;
-use super::bytes::{hex_to_bytes, single_xor, xor};
-
+use std::str;
 
 fn get_chi_squared(buf: &[u8]) -> f64 {
-
     let english_freq = vec![
         0.0651738, 0.0124248, 0.0217339, 0.0349835,  //'A', 'B', 'C', 'D',...
         0.1041442, 0.0197881, 0.0158610, 0.0492888,
@@ -19,12 +17,12 @@ fn get_chi_squared(buf: &[u8]) -> f64 {
     ];
 
     let ordered_letters = String::from("abcdefghijklmnopqrstuvwxyz ");
-    let frequency_score_map: HashMap<_, _> = ordered_letters.chars().zip(english_freq.iter()).collect();
+    let frequency_score_map: HashMap<_, _> =
+        ordered_letters.chars().zip(english_freq.iter()).collect();
 
     let mut count: HashMap<char, usize> = HashMap::new();
 
     for &byte in buf.into_iter() {
-
         let byte_as_char = (byte as char).to_ascii_lowercase();
 
         let i = count.entry(byte_as_char).or_insert(0);
@@ -79,7 +77,6 @@ pub fn hamming_distance_bytes(buf1: &[u8], buf2: &[u8]) -> usize {
 }
 
 pub fn word_scorer_bytes(buf: &[u8]) -> Result<(String, f64, u8), Error> {
-
     let mut best_key = 0;
     let mut best_score = None;
 
@@ -92,7 +89,7 @@ pub fn word_scorer_bytes(buf: &[u8]) -> Result<(String, f64, u8), Error> {
                     let score = get_chi_squared(result);
 
                     if let Some(best) = best_score {
-                        if score < best{
+                        if score < best {
                             best_score = Some(score);
                             best_key = i;
                         }
@@ -101,38 +98,46 @@ pub fn word_scorer_bytes(buf: &[u8]) -> Result<(String, f64, u8), Error> {
                         best_key = i;
                     }
                 }
-            },
-            Err(_) => {},
+            }
+            Err(_) => {}
         }
     }
 
     match best_score {
-        None => return Err(Error::new(ErrorKind::InvalidData, "Unable to find any valid xored byte buffer")),
+        None => {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Unable to find any valid xored byte buffer",
+            ))
+        }
         Some(score) => {
             let plaintext_bytes = single_xor(&buf, best_key);
-            let plaintext_char_buffer: Vec<char> = plaintext_bytes.iter().map(|&x| x as char).collect();
+            let plaintext_char_buffer: Vec<char> =
+                plaintext_bytes.iter().map(|&x| x as char).collect();
 
-            return Ok((format!("{}", plaintext_char_buffer.iter().format("")), score, best_key));
-        },
+            return Ok((
+                format!("{}", plaintext_char_buffer.iter().format("")),
+                score,
+                best_key,
+            ));
+        }
     }
 }
 
-pub fn word_scorer_string(hex: &str) ->  Result<(String, f64, u8), Error> {
+pub fn word_scorer_string(hex: &str) -> Result<(String, f64, u8), Error> {
     let buf = hex_to_bytes(hex);
     word_scorer_bytes(&buf[..])
 }
 
 pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
-
     let mut goal_keysize = None;
     let mut goal_dist = f64::INFINITY;
 
     for keysize in 2..40 {
-
         let chunk1 = &ciphertext[0..keysize];
-        let chunk2 = &ciphertext[keysize..keysize*2];
-        let chunk3 = &ciphertext[keysize*2..keysize*3];
-        let chunk4 = &ciphertext[keysize*3..keysize*4];
+        let chunk2 = &ciphertext[keysize..keysize * 2];
+        let chunk3 = &ciphertext[keysize * 2..keysize * 3];
+        let chunk4 = &ciphertext[keysize * 3..keysize * 4];
 
         let dist_1_2 = hamming_distance_bytes(&chunk1, &chunk2);
         let dist_1_3 = hamming_distance_bytes(&chunk1, &chunk3);
@@ -142,7 +147,8 @@ pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
         let dist_3_4 = hamming_distance_bytes(&chunk3, &chunk4);
 
         // TODO: all of this could probably be made nicer with a collection/combination
-        let average_dist: f64 = (dist_1_2 + dist_1_3 + dist_1_4 + dist_2_3 + dist_2_4 + dist_3_4) as f64 / (6.0 * keysize as f64);
+        let average_dist: f64 = (dist_1_2 + dist_1_3 + dist_1_4 + dist_2_3 + dist_2_4 + dist_3_4)
+            as f64 / (6.0 * keysize as f64);
 
         if let Some(_) = goal_keysize {
             if average_dist < goal_dist {

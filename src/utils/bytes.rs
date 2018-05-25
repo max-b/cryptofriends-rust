@@ -1,4 +1,4 @@
-use base64::{encode, decode};
+use base64::{decode, encode};
 use itertools::Itertools;
 use rand::distributions::{IndependentSample, Range};
 use rand::{OsRng, Rng};
@@ -23,10 +23,11 @@ pub fn single_xor(buf: &[u8], key: u8) -> Vec<u8> {
 }
 
 pub fn hex_to_bytes(hex: &str) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::with_capacity(hex.len()/2);
-    for i in 0..(hex.len()/2) {
-        let hex_string = &hex[(i*2)..(i*2)+2];
-        let res = u8::from_str_radix(hex_string, 16).expect(&format!("Problem with hex {}", hex_string));
+    let mut bytes: Vec<u8> = Vec::with_capacity(hex.len() / 2);
+    for i in 0..(hex.len() / 2) {
+        let hex_string = &hex[(i * 2)..(i * 2) + 2];
+        let res =
+            u8::from_str_radix(hex_string, 16).expect(&format!("Problem with hex {}", hex_string));
         bytes.push(res);
     }
 
@@ -70,10 +71,9 @@ pub fn repeating_key_xor(buf: &[u8], key: &[u8]) -> Vec<u8> {
 }
 
 pub fn random_size_bytes() -> Vec<u8> {
-
     let mut rng = match OsRng::new() {
         Ok(g) => g,
-        Err(e) => panic!("Failed to obtain OS RNG: {}", e)
+        Err(e) => panic!("Failed to obtain OS RNG: {}", e),
     };
 
     let size = Range::new(0, 256);
@@ -82,10 +82,9 @@ pub fn random_size_bytes() -> Vec<u8> {
 }
 
 pub fn random_bytes(size: u32) -> Vec<u8> {
-
     let mut rng = match OsRng::new() {
         Ok(g) => g,
-        Err(e) => panic!("Failed to obtain OS RNG: {}", e)
+        Err(e) => panic!("Failed to obtain OS RNG: {}", e),
     };
 
     let mut bytes = vec![0u8; size as usize];
@@ -95,7 +94,6 @@ pub fn random_bytes(size: u32) -> Vec<u8> {
 }
 
 pub fn generate_random_aes_key() -> Vec<u8> {
-
     // There's a conflict between using AesSafe1238Decryptor.block_size()
     // above and hardcoding 16 here, but not that big of deal
     random_bytes(16)

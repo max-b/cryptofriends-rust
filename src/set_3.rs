@@ -1,14 +1,14 @@
+use rand::OsRng;
+use rand::distributions::{IndependentSample, Range};
+use std::cmp::Ordering;
+use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::path::PathBuf;
-use std::fs::File;
-use rand::distributions::{IndependentSample, Range};
-use rand::{OsRng};
-use std::cmp::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 use utils::bytes::*;
+use utils::crypto::{aes_ctr, cbc_decrypt, cbc_encrypt, mt19937};
 use utils::misc::*;
-use utils::crypto::{aes_ctr, cbc_encrypt, cbc_decrypt, mt19937};
 
 thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = generate_random_aes_key());
 
@@ -26,7 +26,7 @@ pub fn challenge_17_encrypt(string_num: Option<usize>) -> (Vec<u8>, Vec<u8>, Vec
 
     let mut rng = match OsRng::new() {
         Ok(g) => g,
-        Err(e) => panic!("Failed to obtain OS RNG: {}", e)
+        Err(e) => panic!("Failed to obtain OS RNG: {}", e),
     };
 
     let num = match string_num {
@@ -34,7 +34,7 @@ pub fn challenge_17_encrypt(string_num: Option<usize>) -> (Vec<u8>, Vec<u8>, Vec
         None => {
             let sample = Range::new(0, strings.len());
             sample.ind_sample(&mut rng) as usize
-        },
+        }
     };
 
     let chosen_string: &String = strings.get(num).unwrap();
@@ -42,9 +42,7 @@ pub fn challenge_17_encrypt(string_num: Option<usize>) -> (Vec<u8>, Vec<u8>, Vec
 
     let iv: Vec<u8> = vec![0; 16];
 
-    CONSISTENT_RANDOM_KEY.with(|k| {
-        (cbc_encrypt(&k[..], &plaintext[..], &iv[..]), iv, plaintext)
-    })
+    CONSISTENT_RANDOM_KEY.with(|k| (cbc_encrypt(&k[..], &plaintext[..], &iv[..]), iv, plaintext))
 }
 
 pub fn challenge_17_padding_oracle(ciphertext: &[u8], iv: &[u8]) -> bool {
@@ -62,7 +60,11 @@ pub fn challenge_17_padding_oracle(ciphertext: &[u8], iv: &[u8]) -> bool {
     }
 }
 
-pub fn exploit_padding_oracle(oracle: &Fn(&[u8], &[u8]) -> bool, ciphertext: &[u8], iv: &[u8]) -> Vec<u8> {
+pub fn exploit_padding_oracle(
+    oracle: &Fn(&[u8], &[u8]) -> bool,
+    ciphertext: &[u8],
+    iv: &[u8],
+) -> Vec<u8> {
     let block_size = iv.len();
 
     let mut plaintext: Vec<u8> = Vec::new();
@@ -129,7 +131,7 @@ pub fn exploit_padding_oracle(oracle: &Fn(&[u8], &[u8]) -> bool, ciphertext: &[u
                 Some((decrypted_byte, plaintext_byte)) => {
                     plaintext_block[block_index] = *plaintext_byte;
                     decrypt_output[block_index] = *decrypted_byte;
-                },
+                }
                 None => {
                     println!("No valid option found...");
                 }
@@ -154,11 +156,14 @@ pub fn reused_nonce_encrypt_strings(filename: &str) -> (Vec<Vec<u8>>, Vec<u8>, V
     let nonce: Vec<u8> = vec![0; 8];
 
     CONSISTENT_RANDOM_KEY.with(|k| {
-        let strings: Vec<_> = strings_file_as_reader.lines().map(|l| {
-            let string = base64_to_bytes(&l.unwrap()[..]);
-            let result = aes_ctr(&k[..], &string[..], &nonce[..]);
-            result
-        }).collect();
+        let strings: Vec<_> = strings_file_as_reader
+            .lines()
+            .map(|l| {
+                let string = base64_to_bytes(&l.unwrap()[..]);
+                let result = aes_ctr(&k[..], &string[..], &nonce[..]);
+                result
+            })
+            .collect();
         (strings, nonce, k.clone())
     })
 }
@@ -166,7 +171,11 @@ pub fn reused_nonce_encrypt_strings(filename: &str) -> (Vec<Vec<u8>>, Vec<u8>, V
 pub fn break_repeated_nonce_statistically(ciphertext_list: &[Vec<u8>]) -> Vec<u8> {
     let mut result = Vec::from(ciphertext_list);
 
-    let min_ciphertext_len = result.iter().min_by(|x, y| x.len().cmp(&y.len())).unwrap().len();
+    let min_ciphertext_len = result
+        .iter()
+        .min_by(|x, y| x.len().cmp(&y.len()))
+        .unwrap()
+        .len();
 
     for ciphertext in &mut result {
         ciphertext.truncate(min_ciphertext_len);
@@ -192,8 +201,6 @@ pub fn break_repeated_nonce_statistically(ciphertext_list: &[Vec<u8>]) -> Vec<u8
 
     let flattened_strings: Vec<u8> = result.into_iter().flat_map(|s| s).collect();
 
-
-
     let decrypted_buf = repeating_key_xor(&flattened_strings[..], &key_vector[..]);
     decrypted_buf
 }
@@ -201,7 +208,10 @@ pub fn break_repeated_nonce_statistically(ciphertext_list: &[Vec<u8>]) -> Vec<u8
 pub fn gen_rand_with_time() -> (u32, u32, u32) {
     let mut rng = OsRng::new().unwrap();
     let sample = Range::new(40, 1000);
-    let mut now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as u32;
+    let mut now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as u32;
     now += sample.ind_sample(&mut rng);
     let seed = now;
 
@@ -216,7 +226,7 @@ pub fn gen_rand_with_time() -> (u32, u32, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::{pkcs_7_pad, mt19937};
+    use utils::crypto::{mt19937, pkcs_7_pad};
 
     #[test]
     fn challenge_17() {
@@ -227,7 +237,8 @@ mod tests {
             let oracle_result = challenge_17_padding_oracle(&ciphertext[..], &iv[..]);
             assert!(oracle_result);
 
-            let result = exploit_padding_oracle(&challenge_17_padding_oracle, &ciphertext[..], &iv[..]);
+            let result =
+                exploit_padding_oracle(&challenge_17_padding_oracle, &ciphertext[..], &iv[..]);
             let plaintext_string_result = String::from_utf8_lossy(&result[..]);
             println!("\n\nplaintext    = {:?}", &plaintext[..]);
             println!("padded plaintext = {:?}", &padded_plaintext[..]);
@@ -240,7 +251,8 @@ mod tests {
 
     #[test]
     fn challenge_18() {
-        let base64_challenge_ciphertext_string = "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==";
+        let base64_challenge_ciphertext_string =
+            "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==";
         let challenge_ciphertext = base64_to_bytes(&base64_challenge_ciphertext_string);
         let key = "YELLOW SUBMARINE".as_bytes();
         let nonce: Vec<u8> = vec![0; 8];
@@ -252,7 +264,10 @@ mod tests {
         println!("plaintext_string_result = {:?}", plaintext_string_result);
         let actual_plaintext_string_result = "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby ";
 
-        assert_eq!(&actual_plaintext_string_result[..], &plaintext_string_result[..]);
+        assert_eq!(
+            &actual_plaintext_string_result[..],
+            &plaintext_string_result[..]
+        );
     }
 
     #[test]
@@ -273,7 +288,6 @@ mod tests {
         let plaintext_string_result = String::from_utf8_lossy(&plaintext_result[..]);
         println!("plaintext_string_result = {:?}", plaintext_string_result);
         assert!(plaintext_string_result.contains(actual_plaintext_string_snippet));
-
     }
 
     #[test]

@@ -1,4 +1,3 @@
-
 const W: u32 = 32;
 const N: usize = 624;
 const M: usize = 397;
@@ -25,10 +24,14 @@ impl MT19937 {
 
         mt[0] = seed;
         for i in 1..N {
-            let (x, _) = F.overflowing_mul(mt[i-1] ^ (mt[i-1] >> (W-2)));
+            let (x, _) = F.overflowing_mul(mt[i - 1] ^ (mt[i - 1] >> (W - 2)));
             mt[i] = x + i as u32;
         }
-        MT19937 { mt, mti: N, initialized: true }
+        MT19937 {
+            mt,
+            mti: N,
+            initialized: true,
+        }
     }
 
     pub fn gen_rand(&mut self) -> u32 {
@@ -40,19 +43,19 @@ impl MT19937 {
         }
 
         if self.mti >= N {
-            for kk in 0..(N-M) {
-                y = (self.mt[kk] & UPPER_MASK) | (self.mt[kk+1] & LOWER_MASK);
-                self.mt[kk] = self.mt[kk+M] ^ (y >> 1) ^ mag01[y as usize & 0x1];
+            for kk in 0..(N - M) {
+                y = (self.mt[kk] & UPPER_MASK) | (self.mt[kk + 1] & LOWER_MASK);
+                self.mt[kk] = self.mt[kk + M] ^ (y >> 1) ^ mag01[y as usize & 0x1];
             }
 
-            for kk in (N-M)..(N-1) {
-                y = (self.mt[kk] & UPPER_MASK) | (self.mt[kk+1] & LOWER_MASK);
+            for kk in (N - M)..(N - 1) {
+                y = (self.mt[kk] & UPPER_MASK) | (self.mt[kk + 1] & LOWER_MASK);
                 let m_sub_n: isize = M as isize - N as isize;
                 let index = kk as isize + m_sub_n;
                 self.mt[kk] = self.mt[index as usize] ^ (y >> 1) ^ mag01[y as usize & 0x1];
             }
-            y = (self.mt[N-1] & UPPER_MASK) | (self.mt[0] & LOWER_MASK);
-            self.mt[N-1] = self.mt[M-1] ^ (y >> 1) ^ mag01[y as usize & 0x1];
+            y = (self.mt[N - 1] & UPPER_MASK) | (self.mt[0] & LOWER_MASK);
+            self.mt[N - 1] = self.mt[M - 1] ^ (y >> 1) ^ mag01[y as usize & 0x1];
             self.mti = 0;
         }
 
