@@ -5,9 +5,10 @@ use std::fs::File;
 use rand::distributions::{IndependentSample, Range};
 use rand::{OsRng};
 use std::cmp::Ordering;
+use std::time::{SystemTime, UNIX_EPOCH};
 use utils::bytes::*;
 use utils::misc::*;
-use utils::crypto::{aes_ctr, cbc_encrypt, cbc_decrypt};
+use utils::crypto::{aes_ctr, cbc_encrypt, cbc_decrypt, mt19937};
 
 thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = generate_random_aes_key());
 
@@ -197,11 +198,25 @@ pub fn break_repeated_nonce_statistically(ciphertext_list: &[Vec<u8>]) -> Vec<u8
     decrypted_buf
 }
 
+pub fn gen_rand_with_time() -> (u32, u32, u32) {
+    let mut rng = OsRng::new().unwrap();
+    let sample = Range::new(40, 1000);
+    let mut now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as u32;
+    now += sample.ind_sample(&mut rng);
+    let seed = now;
+
+    let mut mt = mt19937::MT19937::new(seed);
+    let val = mt.gen_rand();
+
+    now += sample.ind_sample(&mut rng);
+    println!("val: {}, now: {}, seed: {}", val, now, seed);
+    (val, now, seed)
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::pkcs_7_pad; 
+    use utils::crypto::{pkcs_7_pad, mt19937};
 
     #[test]
     fn challenge_17() {
@@ -259,5 +274,24 @@ mod tests {
         println!("plaintext_string_result = {:?}", plaintext_string_result);
         assert!(plaintext_string_result.contains(actual_plaintext_string_snippet));
 
+    }
+
+    #[test]
+    fn challenge_22() {
+        for _ in 0..50 {
+            let (val, now, seed) = gen_rand_with_time();
+            let mut found_seed = None;
+            for i in (now - 1000)..now {
+                let mut mt = mt19937::MT19937::new(i);
+                let v = mt.gen_rand();
+                if v == val {
+                    found_seed = Some(i);
+                    break;
+                }
+            }
+
+            println!("found seed = {:?}", found_seed);
+            assert_eq!(found_seed, Some(seed));
+        }
     }
 }
