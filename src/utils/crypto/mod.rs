@@ -3,6 +3,7 @@ use crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
 use byteorder::{WriteBytesExt, LittleEndian};
 use super::bytes::{pad_bytes, xor};
 
+pub mod mt19937;
 
 pub fn pkcs_7_unpad(input: &[u8]) -> Vec<u8> {
     let amount_padded = input[input.len() - 1];
