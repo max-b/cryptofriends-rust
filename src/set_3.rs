@@ -223,9 +223,38 @@ pub fn gen_rand_with_time() -> (u32, u32, u32) {
     (val, now, seed)
 }
 
+pub fn untemper_right(x: u32, l: u32, w: u32) -> u32 {
+    // Most significant l bits come directly from x
+    let mut y = (u32::max_value() << (w - l)) & x;
+
+    for i in 1..=(w - l) {
+        let n = w - l - i;
+        let y1 = y >> (w - i) & 1;
+        let x1 = x >> n & 1;
+        y = y | ((x1 ^ y1) << n);
+    }
+    y
+}
+
+pub fn untemper_left(x: u32, l: u32, w: u32, c: u32) -> u32 {
+    // Least significant l bits come directly from x
+    let mut y = (u32::max_value() >> (w - l)) & x;
+
+    for i in 0..(w - l) {
+        let n = l + i;
+        let y1 = y >> i & 1;
+        let x1 = x >> n & 1;
+        let c1 = c >> n & 1;
+
+        y = y | ((x1 ^ (y1 & c1)) << n);
+    }
+    y
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use utils::crypto::mt19937::{MT19937, B, C, L, N, S, T, U, W};
     use utils::crypto::{mt19937, pkcs_7_pad};
 
     #[test]
@@ -306,6 +335,39 @@ mod tests {
 
             println!("found seed = {:?}", found_seed);
             assert_eq!(found_seed, Some(seed));
+        }
+    }
+
+    #[test]
+    fn challenge_23() {
+        let mut vals: Vec<u32> = Vec::new();
+        let mut mt = mt19937::MT19937::new(0);
+        let mut i = 0;
+        for _ in 0..N {
+            let mut y = mt.gen_rand();
+            y = untemper_right(y, L, W);
+            y = untemper_left(y, T, W, C);
+            y = untemper_left(y, S, W, B);
+            y = untemper_right(y, U, W);
+            vals.push(y);
+            i += 1;
+        }
+
+        {
+            let mt_state = mt.get_state();
+            assert_eq!(&vals[..], &mt_state[..]);
+        }
+
+        let mut cloned_mt = MT19937 {
+            mt: vals,
+            mti: i,
+            initialized: true,
+        };
+
+        for _ in 0..1000 {
+            let v1 = mt.gen_rand();
+            let v2 = cloned_mt.gen_rand();
+            assert_eq!(v1, v2);
         }
     }
 }

@@ -1,21 +1,21 @@
-const W: u32 = 32;
-const N: usize = 624;
+pub const W: u32 = 32;
+pub const N: usize = 624;
 const M: usize = 397;
 const F: u32 = 1812433253;
 const A: u32 = 0x9908b0df;
-const C: u32 = 0xefc60000;
-const B: u32 = 0x9d2c5680;
-const U: u32 = 11;
-const S: u32 = 7;
-const T: u32 = 15;
-const L: u32 = 18;
+pub const C: u32 = 0xefc60000;
+pub const B: u32 = 0x9d2c5680;
+pub const U: u32 = 11;
+pub const S: u32 = 7;
+pub const T: u32 = 15;
+pub const L: u32 = 18;
 const UPPER_MASK: u32 = 0x80000000;
 const LOWER_MASK: u32 = 0x7fffffff;
 
 pub struct MT19937 {
-    mti: usize,
-    mt: Vec<u32>,
-    initialized: bool,
+    pub mti: usize,
+    pub mt: Vec<u32>,
+    pub initialized: bool,
 }
 
 impl MT19937 {
@@ -32,6 +32,24 @@ impl MT19937 {
             mti: N,
             initialized: true,
         }
+    }
+
+    pub fn get_state(&self) -> &[u32] {
+        &self.mt[..]
+    }
+
+    pub fn set_state(&mut self, new_state: &[u32], new_index: usize) -> () {
+        self.mt = vec![0; N];
+        self.mt.extend_from_slice(&new_state[..]);
+        self.mti = new_index;
+    }
+
+    pub fn get_state_val(&self, i: usize) -> u32 {
+        self.mt[i]
+    }
+
+    pub fn get_index(&self) -> usize {
+        self.mti
     }
 
     pub fn gen_rand(&mut self) -> u32 {
