@@ -7,7 +7,8 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use utils::bytes::*;
-use utils::crypto::{aes_ctr, cbc_decrypt, cbc_encrypt, mt19937};
+use utils::crypto::{aes_ctr, cbc_decrypt, cbc_encrypt};
+use utils::crypto::prng::{Prng, mt19937};
 use utils::misc::*;
 
 thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = generate_random_aes_key());
@@ -254,8 +255,9 @@ pub fn untemper_left(x: u32, l: u32, w: u32, c: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::mt19937::{MT19937, B, C, L, N, S, T, U, W};
-    use utils::crypto::{mt19937, pkcs_7_pad};
+    use utils::crypto::prng::mt19937::{MT19937, B, C, L, N, S, T, U, W};
+    use utils::crypto::prng::Prng;
+    use utils::crypto::pkcs_7_pad;
 
     #[test]
     fn challenge_17() {
@@ -325,7 +327,7 @@ mod tests {
             let (val, now, seed) = gen_rand_with_time();
             let mut found_seed = None;
             for i in (now - 1000)..now {
-                let mut mt = mt19937::MT19937::new(i);
+                let mut mt = MT19937::new(i);
                 let v = mt.gen_rand();
                 if v == val {
                     found_seed = Some(i);
@@ -341,7 +343,7 @@ mod tests {
     #[test]
     fn challenge_23() {
         let mut vals: Vec<u32> = Vec::new();
-        let mut mt = mt19937::MT19937::new(0);
+        let mut mt = MT19937::new(0);
         let mut i = 0;
         for _ in 0..N {
             let mut y = mt.gen_rand();

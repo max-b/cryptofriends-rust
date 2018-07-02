@@ -1,9 +1,11 @@
+pub mod prng;
+
 use super::bytes::{pad_bytes, xor};
 use byteorder::{LittleEndian, WriteBytesExt};
 use crypto::aessafe;
 use crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
+use self::prng::Prng;
 
-pub mod mt19937;
 
 pub fn pkcs_7_unpad(input: &[u8]) -> Vec<u8> {
     let amount_padded = input[input.len() - 1];

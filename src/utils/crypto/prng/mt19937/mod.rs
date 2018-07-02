@@ -12,14 +12,16 @@ pub const L: u32 = 18;
 const UPPER_MASK: u32 = 0x80000000;
 const LOWER_MASK: u32 = 0x7fffffff;
 
+use super::Prng;
+
 pub struct MT19937 {
     pub mti: usize,
     pub mt: Vec<u32>,
     pub initialized: bool,
 }
 
-impl MT19937 {
-    pub fn new(seed: u32) -> MT19937 {
+impl Prng for MT19937 {
+    fn new(seed: u32) -> MT19937 {
         let mut mt: Vec<u32> = vec![0; N];
 
         mt[0] = seed;
@@ -34,25 +36,7 @@ impl MT19937 {
         }
     }
 
-    pub fn get_state(&self) -> &[u32] {
-        &self.mt[..]
-    }
-
-    pub fn set_state(&mut self, new_state: &[u32], new_index: usize) -> () {
-        self.mt = vec![0; N];
-        self.mt.extend_from_slice(&new_state[..]);
-        self.mti = new_index;
-    }
-
-    pub fn get_state_val(&self, i: usize) -> u32 {
-        self.mt[i]
-    }
-
-    pub fn get_index(&self) -> usize {
-        self.mti
-    }
-
-    pub fn gen_rand(&mut self) -> u32 {
+    fn gen_rand(&mut self) -> u32 {
         let mut y: u32;
         let mag01 = [0, A];
 
@@ -87,6 +71,26 @@ impl MT19937 {
         y ^= y >> L;
 
         y
+    }
+}
+
+impl MT19937 {
+    pub fn get_state(&self) -> &[u32] {
+        &self.mt[..]
+    }
+
+    pub fn set_state(&mut self, new_state: &[u32], new_index: usize) -> () {
+        self.mt = vec![0; N];
+        self.mt.extend_from_slice(&new_state[..]);
+        self.mti = new_index;
+    }
+
+    pub fn get_state_val(&self, i: usize) -> u32 {
+        self.mt[i]
+    }
+
+    pub fn get_index(&self) -> usize {
+        self.mti
     }
 }
 
