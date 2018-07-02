@@ -257,7 +257,7 @@ mod tests {
     use super::*;
     use utils::crypto::prng::mt19937::{MT19937, B, C, L, N, S, T, U, W};
     use utils::crypto::prng::Prng;
-    use utils::crypto::pkcs_7_pad;
+    use utils::crypto::{pkcs_7_pad, prng_cipher};
 
     #[test]
     fn challenge_17() {
@@ -364,6 +364,7 @@ mod tests {
             mt: vals,
             mti: i,
             initialized: true,
+            ..Default::default()
         };
 
         for _ in 0..1000 {
@@ -371,5 +372,35 @@ mod tests {
             let v2 = cloned_mt.gen_rand();
             assert_eq!(v1, v2);
         }
+    }
+
+    #[test]
+    fn challenge_24() {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
+
+        let key = ((now << 16) >> 16) as u16;
+
+        println!("key = {:?}", key);
+
+        let actual_plaintext_string = "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby ";
+
+        let ciphertext_result = prng_cipher::<MT19937>(key, actual_plaintext_string.as_bytes());
+
+        println!("ciphertext_result = {:?}", ciphertext_result);
+
+        let plaintext_result = prng_cipher::<MT19937>(key, &ciphertext_result[..]);
+        println!("plaintext_result = {:?}", plaintext_result);
+
+        let plaintext_string_result = String::from_utf8_lossy(&plaintext_result[..]);
+
+        println!("plaintext_string_result = {:?}", plaintext_string_result);
+
+        assert_eq!(
+            actual_plaintext_string,
+            plaintext_string_result
+        );
     }
 }

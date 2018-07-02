@@ -14,10 +14,13 @@ const LOWER_MASK: u32 = 0x7fffffff;
 
 use super::Prng;
 
+#[derive(Default)]
 pub struct MT19937 {
     pub mti: usize,
     pub mt: Vec<u32>,
     pub initialized: bool,
+    pub byte_array: Option<Vec<u8>>,
+    pub byte_counter: Option<usize>,
 }
 
 impl Prng for MT19937 {
@@ -33,6 +36,7 @@ impl Prng for MT19937 {
             mt,
             mti: N,
             initialized: true,
+            ..Default::default()
         }
     }
 
@@ -71,6 +75,33 @@ impl Prng for MT19937 {
         y ^= y >> L;
 
         y
+    }
+
+    fn gen_rand_byte(&mut self) -> u8 {
+        if self.byte_array.as_ref().is_none() {
+            let rand = self.gen_rand();
+            let mut byte_array: Vec<u8> = Vec::new();
+
+            for i in 0..4 {
+                byte_array.push(((rand >> (i * 8)) & 0xff) as u8);
+            }
+            let first_byte = byte_array[0];
+            self.byte_array = Some(byte_array);
+            self.byte_counter = Some(0);
+
+            first_byte
+        } else {
+            let mut counter = self.byte_counter.unwrap();
+            counter += 1;
+            if counter == 4 {
+                self.byte_counter = None;
+                self.byte_array = None;
+                self.gen_rand_byte()
+            } else {
+                self.byte_counter = Some(counter);
+                self.byte_array.as_mut().unwrap()[counter]
+            }
+        }
     }
 }
 
