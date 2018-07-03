@@ -30,7 +30,7 @@ impl Prng for MT19937 {
         mt[0] = seed;
         for i in 1..N {
             let (x, _) = F.overflowing_mul(mt[i - 1] ^ (mt[i - 1] >> (W - 2)));
-            mt[i] = x + i as u32;
+            mt[i] = x.wrapping_add(i as u32);
         }
         MT19937 {
             mt,

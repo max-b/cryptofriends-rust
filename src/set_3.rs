@@ -402,5 +402,45 @@ mod tests {
             actual_plaintext_string,
             plaintext_string_result
         );
+
+        let mut known_plaintext_string = String::new();
+        for _ in 0..14 {
+            known_plaintext_string.push('A');
+        }
+
+        let mut known_plaintext = Vec::new();
+        known_plaintext.extend_from_slice(&random_size_bytes()[..]);
+        known_plaintext.extend_from_slice(known_plaintext_string.as_bytes());
+
+        println!("known_plaintext = {:?}", known_plaintext);
+
+        let ciphertext = prng_cipher::<MT19937>(key, &known_plaintext[..]);
+
+        let mut known_keystream = Vec::new();
+
+        for byte in &ciphertext[ciphertext.len()-14..] {
+            known_keystream.push(byte ^ 65);
+        }
+        println!("known_keystream = {:?}", &known_keystream[..]);
+
+        let mut test_plaintext = vec![0; ciphertext.len() - 14];
+
+        for _ in 0..14 {
+            test_plaintext.push(65);
+        }
+
+        let mut found_key = None;
+        for test_key in 0..(u32::pow(2,16) - 1) as u16 {
+            let test_ciphertext = prng_cipher::<MT19937>(test_key, &test_plaintext[..]);
+
+            assert_eq!(test_ciphertext.len(), ciphertext.len());
+            if &test_ciphertext[ciphertext.len() - 14..] == &ciphertext[ciphertext.len() - 14..] {
+                found_key = Some(test_key);
+            }
+
+        }
+
+        assert_eq!(found_key, Some(key));
+        println!("found key = {:?}", found_key.unwrap());
     }
 }

@@ -185,13 +185,11 @@ pub fn aes_ctr(key: &[u8], input: &[u8], nonce: &[u8]) -> Vec<u8> {
 }
 
 pub fn prng_cipher<T: Prng>(seed: u16, input: &[u8]) -> Vec<u8> {
-
     let mut output = Vec::new();
     let mut prng: T = T::new(seed.into());
     for byte in input {
         let keystream_byte = prng.gen_rand_byte();
         output.push(byte ^ keystream_byte);
     }
-
     output
 }
