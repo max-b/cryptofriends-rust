@@ -201,7 +201,7 @@ pub fn edit_aes_ctr(ciphertext: &[u8], key: &[u8], nonce: &[u8], offset: usize, 
         }
     }
 
-    assert!(end_of_ciphertext_to_edit < ciphertext.len());
+    assert!(end_of_ciphertext_to_edit <= ciphertext.len());
 
     let block_offset = offset % block_size;
 
