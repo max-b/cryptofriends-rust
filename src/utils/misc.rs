@@ -1,4 +1,4 @@
-use super::bytes::{hex_to_bytes, single_xor, xor};
+use super::bytes::{generate_random_aes_key, hex_to_bytes, single_xor, xor};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::f64;
@@ -162,6 +162,42 @@ pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
     }
 
     goal_keysize.ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unable to find a keysize"))
+}
+
+thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = generate_random_aes_key());
+
+pub fn admin_string_encrypt_challenge(input: &str, iv: &[u8],  encrypt: &Fn(&[u8], &[u8], &[u8]) -> Vec<u8>) -> Vec<u8> {
+
+    let mut quoted_input = str::replace(input, ";", "\";\"");
+    quoted_input = str::replace(&quoted_input[..], "=", "\"=\"");
+
+    let input_bytes = quoted_input.as_bytes();
+    let prepend_bytes = "comment1=cooking%20MCs;userdata=".as_bytes();
+    let append_bytes = ";comment2=%20like%20a%20pound%20of%20bacon".as_bytes();
+
+    let mut plaintext = Vec::new();
+
+    plaintext.extend_from_slice(&prepend_bytes[..]);
+    plaintext.extend_from_slice(&input_bytes[..]);
+    plaintext.extend_from_slice(&append_bytes[..]);
+
+    CONSISTENT_RANDOM_KEY.with(|k| encrypt(&k[..], &plaintext[..], &iv[..]))
+}
+
+pub fn admin_string_decrypt_and_check(ciphertext: &[u8], iv: &[u8], decrypt: &Fn(&[u8], &[u8], &[u8]) -> Result<Vec<u8>, &'static str>) -> bool {
+    let mut plaintext = Vec::new();
+
+    CONSISTENT_RANDOM_KEY.with(|k| {
+        plaintext = decrypt(&k[..], &ciphertext[..], &iv[..]).expect("Error decrypting");
+    });
+
+    let plaintext_string = String::from_utf8_lossy(&plaintext);
+
+    if let Some(_) = plaintext_string.find(";admin=true;") {
+        true
+    } else {
+        false
+    }
 }
 
 #[cfg(test)]
