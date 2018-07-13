@@ -31,7 +31,7 @@ pub fn challenge_25_encrypt() -> (Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::{edit_aes_ctr};
+    use utils::crypto::{sha1, edit_aes_ctr};
     use utils::misc::*;
 
     #[test]
@@ -72,5 +72,20 @@ mod tests {
 
         let decrypted_contains_admin = admin_string_decrypt_and_check(&encrypted[..], &iv[..], &|key, ciphertext, nonce | { Ok(aes_ctr(&key[..], &ciphertext[..], &nonce[..])) });
         assert!(decrypted_contains_admin);
+    }
+
+    #[test]
+    fn challenge_28() {
+        let hashed = sha1("".as_bytes(), "hello world".as_bytes());
+        let hashed_str = bytes_to_hex(&hashed);
+        assert_eq!(hashed_str, "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed");
+
+        let hashed = sha1("key".as_bytes(), "message".as_bytes());
+        let hashed_str = bytes_to_hex(&hashed);
+        assert_eq!(hashed_str, "7d89ca5f9535d3bd925ca99f484ae4413a14fe2d");
+
+        let hashed = sha1("notthekey".as_bytes(), "message".as_bytes());
+        let hashed_str = bytes_to_hex(&hashed);
+        assert_ne!(hashed_str, "7d89ca5f9535d3bd925ca99f484ae4413a14fe2d");
     }
 }

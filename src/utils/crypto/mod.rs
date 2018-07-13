@@ -4,6 +4,9 @@ use super::bytes::{pad_bytes, xor};
 use byteorder::{LittleEndian, WriteBytesExt};
 use crypto::aessafe;
 use crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
+use crypto::digest::Digest;
+use crypto::sha1::Sha1;
+
 use self::prng::Prng;
 
 
@@ -273,6 +276,23 @@ pub fn prng_cipher<T: Prng>(seed: u16, input: &[u8]) -> Vec<u8> {
         output.push(byte ^ keystream_byte);
     }
     output
+}
+
+pub fn sha1(key: &[u8], message: &[u8]) -> Vec<u8> {
+    let mut concated_bytes = Vec::new();
+    concated_bytes.extend_from_slice(&key[..]);
+    concated_bytes.extend_from_slice(&message[..]);
+
+    let mut hasher = Sha1::new();
+
+    hasher.input(&concated_bytes[..]);
+
+    let output_size = hasher.output_bits();
+    let mut output_bytes = vec![0; output_size / 8];
+
+    hasher.result(&mut output_bytes);
+
+    output_bytes
 }
 
 #[cfg(test)]
