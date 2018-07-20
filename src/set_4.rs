@@ -71,7 +71,7 @@ pub fn generate_mac_secret() -> Vec<u8> {
 }
 
 fn check_signature(valid: &[u8], test: &[u8]) -> bool {
-    let sleep_time = Duration::new(0, 50000000);
+    let sleep_time = Duration::new(0, 5000000);
 
     for i in 0..valid.len() {
         let valid_byte = valid.get(i).unwrap();
@@ -99,7 +99,7 @@ fn handle_request(req: Request<Body>) -> Response<Body> {
     let mut signature = None;
 
     for query in queries.into_owned() {
-        println!("query = {:?}", query);
+        // println!("query = {:?}", query);
         let (key, val) = query;
         if key == "file" {
             file = Some(val.clone());
@@ -113,8 +113,8 @@ fn handle_request(req: Request<Body>) -> Response<Body> {
     hmac.input(file.unwrap().as_bytes());
     let result = hmac.result();
     let code = result.code();
-    let hmac_hex_string = bytes_to_hex(&code);
-    println!("code {:?}", &hmac_hex_string);
+    // let hmac_hex_string = bytes_to_hex(&code);
+    // println!("code {:?}", &hmac_hex_string);
 
     let signature_bytes = hex_to_bytes(&signature.unwrap());
     if check_signature(&code[..], &signature_bytes[..]) {
@@ -279,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    fn challenge_31() {
+    fn challenge_31_32() {
         thread::spawn(|| {
             start_web_server();
         });
@@ -314,26 +314,29 @@ mod tests {
                 test_signature.push_str("00");
 
                 let now = Instant::now();
-                let resp = client.get(format!("http://localhost:3000?file={}&signature={}", filename, &test_signature[..]).as_str())
-                    .send()
-                    .expect("Can't send");
+                for _ in 0..20 {
+                    let resp = client.get(format!("http://localhost:3000?file={}&signature={}", filename, &test_signature[..]).as_str())
+                        .send()
+                        .expect("Can't send");
 
-                match resp.status() {
-                    reqwest::StatusCode::BadRequest => {
-                        println!("status error");
-                        let elapsed = now.elapsed();
-                        if elapsed > best_time {
-                            best_time = elapsed;
-                            best_hex.clear();
-                            best_hex.push_str(&hex_string[..]);
+                    match resp.status() {
+                        reqwest::StatusCode::BadRequest => {
+                            // println!("status error");
+                        },
+                        _ => {
+                            println!("good request");
+                            discovered_signature = Some(test_signature);
+                            break 'outer;
                         }
-                    },
-                    _ => {
-                        println!("good request");
-                        discovered_signature = Some(test_signature);
-                        break 'outer;
+                    };
+
+                    let elapsed = now.elapsed();
+                    if elapsed > best_time {
+                        best_time = elapsed;
+                        best_hex.clear();
+                        best_hex.push_str(&hex_string[..]);
                     }
-                };
+                }
 
                 // have to pop twice for each hex digit we want to remove
                 test_signature.pop();
@@ -342,6 +345,8 @@ mod tests {
                 test_signature.pop();
             }
 
+
+            println!("Found a byte!: {}", &best_hex[..]);
             test_signature.push_str(&best_hex[..]);
         }
 
