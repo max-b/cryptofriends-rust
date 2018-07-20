@@ -3,6 +3,9 @@ extern crate byteorder;
 extern crate crypto;
 extern crate itertools;
 extern crate rand;
+extern crate url;
+extern crate hyper;
+extern crate reqwest;
 
 pub mod utils;
 

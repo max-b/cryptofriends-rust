@@ -43,7 +43,7 @@ pub fn hex_to_base64(hex: &str) -> String {
     encode(&bytes)
 }
 
-pub fn bytes_to_hex(buf: &Vec<u8>) -> String {
+pub fn bytes_to_hex(buf: &[u8]) -> String {
     let result = buf.iter().format("");
 
     format!("{:02x}", result)

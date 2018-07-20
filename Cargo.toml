@@ -9,3 +9,6 @@ itertools = "0.7.4"
 rust-crypto = { git = "https://github.com/max-b/rust-crypto", branch = "sha1-public" }
 rand = "0.4"
 byteorder = "1.2.3"
+hyper = "0.12"
+url = "1.7.1"
+reqwest = "0.8.6"
