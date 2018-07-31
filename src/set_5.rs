@@ -1,26 +1,23 @@
-use rand::distributions::{IndependentSample, Range};
-use rand::prelude::*;
-use rand::{OsRng};
-use bigint::{RandBigInt, BigUint};
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use rand::{Rng, OsRng};
+    use bigint::{RandBigInt, BigUint};
 
     #[test]
     fn challenge_33() {
 
         let mut rng = OsRng::new().expect("Can't get rng");
-        println!("works");
         let p = 37;
-        let random_range = Range::new(0, p);
-        let p = BigUint::from(p as usize);
         let g = BigUint::from(5 as usize);
 
-        let a = BigUint::from(random_range.ind_sample(&mut rng) as usize);
+        let a = BigUint::from(rng.gen_range(0, p) as usize);
+        let b = BigUint::from(rng.gen_range(0, p) as usize);
+
+        let p = BigUint::from(p as usize);
+        #[allow(non_snake_case)]
         let A = g.modpow(&a, &p);
 
-        let b = BigUint::from(random_range.ind_sample(&mut rng) as usize);
+        #[allow(non_snake_case)]
         let B = g.modpow(&b, &p);
 
         let s1 = B.modpow(&a, &p);
@@ -44,11 +41,13 @@ mod tests {
         let a = rng.gen_biguint_below(&p);
 
         println!("a = {:?}", &a);
+        #[allow(non_snake_case)]
         let A = g.modpow(&a, &p);
 
         let b = rng.gen_biguint_below(&p);
         println!("b = {:?}", &b);
 
+        #[allow(non_snake_case)]
         let B = g.modpow(&b, &p);
 
         let s1 = B.modpow(&a, &p);

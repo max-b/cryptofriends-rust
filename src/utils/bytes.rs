@@ -1,7 +1,6 @@
 use base64::{decode, encode};
 use itertools::Itertools;
-use rand::distributions::{IndependentSample, Range};
-use rand::{OsRng, RngCore};
+use rand::{OsRng, Rng, RngCore};
 
 pub fn xor(buf1: &[u8], buf2: &[u8]) -> Vec<u8> {
     assert_eq!(buf1.len(), buf2.len());
@@ -76,9 +75,7 @@ pub fn random_size_bytes() -> Vec<u8> {
         Err(e) => panic!("Failed to obtain OS RNG: {}", e),
     };
 
-    let size = Range::new(0, 256);
-
-    random_bytes(size.ind_sample(&mut rng))
+    random_bytes(rng.gen_range(0, 256))
 }
 
 pub fn random_bytes(size: u32) -> Vec<u8> {

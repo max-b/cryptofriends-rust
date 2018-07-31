@@ -1,4 +1,3 @@
-use rand::distributions::{IndependentSample, Range};
 use rand::{OsRng, Rng};
 use std::path::PathBuf;
 use std::str;
@@ -53,9 +52,8 @@ pub fn random_key_encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, EncryptionTyp
         Err(e) => panic!("Failed to obtain OS RNG: {}", e),
     };
 
-    let junk_size = Range::new(5, 11);
-    let left_junk = random_bytes(junk_size.ind_sample(&mut rng));
-    let right_junk = random_bytes(junk_size.ind_sample(&mut rng));
+    let left_junk = random_bytes(rng.gen_range(5, 11));
+    let right_junk = random_bytes(rng.gen_range(5, 11));
 
     let mut junked_plaintext = Vec::new();
     junked_plaintext.extend_from_slice(&left_junk[..]);

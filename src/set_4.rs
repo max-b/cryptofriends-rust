@@ -1,7 +1,6 @@
 extern crate reqwest;
 
 use std::fs;
-use rand::distributions::{IndependentSample, Range};
 use std::path::PathBuf;
 use std::io::{BufReader};
 use std::io::prelude::*;
@@ -14,7 +13,7 @@ use url::Url;
 use utils::bytes::*;
 use utils::files::*;
 use utils::crypto::{aes_ctr, ecb_decrypt, sha1};
-use rand::{OsRng};
+use rand::{OsRng, Rng};
 use crypto::sha1::Sha1;
 use crypto::hmac::Hmac;
 use crypto::mac::Mac;
@@ -56,8 +55,7 @@ pub fn generate_mac_secret() -> Vec<u8> {
     let buf_reader = BufReader::new(file);
     let num_lines = buf_reader.lines().count();
 
-    let random_range = Range::new(0, num_lines);
-    let choice = random_range.ind_sample(&mut rng);
+    let choice = rng.gen_range(0, num_lines);
 
     // It seems like BufReader consumes the file object,
     // so I *think* re-opening is necessary

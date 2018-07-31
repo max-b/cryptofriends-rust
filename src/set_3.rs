@@ -1,5 +1,4 @@
-use rand::OsRng;
-use rand::distributions::{IndependentSample, Range};
+use rand::{OsRng, Rng};
 use std::cmp::Ordering;
 use std::fs::File;
 use std::io::BufReader;
@@ -33,8 +32,7 @@ pub fn challenge_17_encrypt(string_num: Option<usize>) -> (Vec<u8>, Vec<u8>, Vec
     let num = match string_num {
         Some(n) => n,
         None => {
-            let sample = Range::new(0, strings.len());
-            sample.ind_sample(&mut rng) as usize
+            rng.gen_range(0, strings.len()) as usize
         }
     };
 
@@ -208,18 +206,17 @@ pub fn break_repeated_nonce_statistically(ciphertext_list: &[Vec<u8>]) -> Vec<u8
 
 pub fn gen_rand_with_time() -> (u32, u32, u32) {
     let mut rng = OsRng::new().unwrap();
-    let sample = Range::new(40, 1000);
     let mut now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as u32;
-    now += sample.ind_sample(&mut rng);
+    now += rng.gen_range(40, 1000);
     let seed = now;
 
     let mut mt = mt19937::MT19937::new(seed);
     let val = mt.gen_rand();
 
-    now += sample.ind_sample(&mut rng);
+    now += rng.gen_range(40, 1000);
     println!("val: {}, now: {}, seed: {}", val, now, seed);
     (val, now, seed)
 }
