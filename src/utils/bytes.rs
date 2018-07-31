@@ -1,7 +1,7 @@
 use base64::{decode, encode};
 use itertools::Itertools;
 use rand::distributions::{IndependentSample, Range};
-use rand::{OsRng, Rng};
+use rand::{OsRng, RngCore};
 
 pub fn xor(buf1: &[u8], buf2: &[u8]) -> Vec<u8> {
     assert_eq!(buf1.len(), buf2.len());
