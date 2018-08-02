@@ -2,62 +2,95 @@ use rand::{OsRng};
 use bigint::{RandBigInt, BigUint};
 use std::cell::RefCell;
 use std::rc::Rc;
+use crypto::digest::Digest;
+use crypto::sha1::{Sha1};
+use utils::crypto::{cbc_encrypt, cbc_decrypt};
+use utils::bytes::{generate_random_aes_key};
 
 
 #[derive(Debug)]
 pub enum Message {
   InitSession(BigUint, BigUint, BigUint), // p, g, public_key
   AckInit(BigUint), // public key
+  Content(Vec<u8>, Vec<u8>), // ciphertext, iv
 }
 
 pub trait Entity {
-  fn set_keypair(&mut self, DHKeyPair);
-  fn set_partner(&mut self, Rc<RefCell<Entity>>);
-  // fn get_public_key(&self) -> BigUint;
+  fn receive_message(&mut self, Rc<RefCell<Entity>>, Message);
+  fn send_encrypted_message(&mut self, &[u8]);
 }
-  
+
 pub struct HonestEntity {
+  pub rc: Option<Rc<RefCell<HonestEntity>>>,
   pub keypair: Option<DHKeyPair>,
   pub partner: Option<Rc<RefCell<Entity>>>,
-}
-
-fn receive_message(receiver: Rc<RefCell<Entity>>, sender: Rc<RefCell<Entity>>, message: Message) -> () {
-  println!("received message {:?}", &message);
-  match message {
-    Message::InitSession(p, g, public_key) => {
-      let keypair = DHKeyPair::new(&p, &g);
-
-      let my_public_key = keypair.public_key.clone();
-      (*receiver).borrow_mut().set_keypair(keypair);
-      // TODO: This will panic right???
-      (*receiver).borrow_mut().set_partner(Rc::clone(&sender));
-      let response = Message::AckInit(my_public_key);
-      receive_message(Rc::clone(&sender), Rc::clone(&receiver), response);
-    },
-    Message::AckInit(public_key) => {
-
-    },
-  };
+  pub session_key: Option<Vec<u8>>,
 }
 
 impl Entity for HonestEntity {
-  fn set_partner(&mut self, partner: Rc<RefCell<Entity>>) {
+  fn receive_message(&mut self, sender: Rc<RefCell<Entity>>, message: Message) -> () {
+    println!("received message {:?}", &message);
+    match message {
+      Message::InitSession(p, g, public_key) => {
+        let keypair = DHKeyPair::new(&p, &g);
 
+        self.session_key = Some(keypair.gen_aes_session_key(public_key).clone());
+
+        let my_public_key = keypair.public_key.clone();
+
+        self.keypair = Some(keypair);
+        self.partner = Some(sender);
+
+        let response = Message::AckInit(my_public_key);
+
+        self.partner.as_ref().unwrap().borrow_mut().receive_message(self.rc.as_ref().unwrap().clone(), response);
+      },
+      Message::AckInit(public_key) => {
+        self.partner = Some(sender);
+
+        self.session_key = Some(self.keypair.as_ref().unwrap().gen_aes_session_key(public_key).clone());
+      },
+      Message::Content(ciphertext, iv) => {
+        let plaintext = cbc_decrypt(self.session_key.as_ref().unwrap(), &ciphertext, &iv);
+        println!("Decrypted plaintext = {:?}", String::from_utf8_lossy(&(plaintext.as_ref().unwrap())));
+      },
+    };
   }
 
-  fn set_keypair(&mut self, keypair: DHKeyPair) {
-    self.keypair = Some(keypair);
+  fn send_encrypted_message(&mut self, plaintext: &[u8]) {
+    let iv = generate_random_aes_key();
+    let ciphertext = cbc_encrypt(self.session_key.as_ref().unwrap(), plaintext, &iv[..]);
+    let message = Message::Content(ciphertext, iv);
+    self.partner.as_ref().unwrap().borrow_mut().receive_message(self.rc.as_ref().unwrap().clone(), message);
   }
 }
 
+// impl Entity for HonestEntity {
+//   fn set_partner(&mut self, partner: Rc<RefCell<Entity>>) {
+
+//   }
+
+//   fn set_keypair(&mut self, keypair: DHKeyPair) {
+//     self.keypair = Some(keypair);
+//   }
+// }
+
 impl HonestEntity {
-  pub fn new() -> HonestEntity {
-    HonestEntity {
-      keypair: None,
-      partner: None,
-    }
+  pub fn new() -> Rc<RefCell<HonestEntity>> {
+    let entity = Rc::new(RefCell::new(
+      HonestEntity {
+        rc: None,
+        keypair: None,
+        partner: None,
+        session_key: None,
+      }
+    ));
+
+    (*entity).borrow_mut().rc = Some(entity.clone());
+
+    entity
   }
-  
+
   pub fn init(&mut self, p: &BigUint, g: &BigUint) -> () {
     let keypair = DHKeyPair::new(&p, &g);
     self.keypair = Some(keypair);
@@ -117,6 +150,21 @@ impl DHKeyPair {
   pub fn gen_session_key(&self, b: BigUint) -> BigUint {
     let s1 = b.modpow(&self.private_key, &self.p);
     s1
+  }
+
+  pub fn gen_aes_session_key(&self, b: BigUint) -> Vec<u8> {
+    let s = self.gen_session_key(b);
+    let mut hasher = Sha1::new();
+
+    hasher.input(&s.to_bytes_le()[..]);
+
+    let output_size = hasher.output_bits();
+    let mut output_bytes = vec![0; output_size / 8];
+
+    hasher.result(&mut output_bytes);
+    // TODO: keep some more global notion of aes keysize!
+    output_bytes.truncate(16);
+    output_bytes
   }
 }
 
@@ -184,18 +232,19 @@ mod tests {
         fffffffffffff", 16).unwrap();
     let g = BigUint::from(2 as usize);
 
-    let mut a = HonestEntity::new();
-    a.init(&p, &g);
+    let a = HonestEntity::new();
+    a.borrow_mut().init(&p, &g);
     let b = HonestEntity::new();
 
     // let e2 = Entity::new(&p, &g);
 
-    let rc_a = Rc::new(RefCell::new(a));
-    let rc_b = Rc::new(RefCell::new(b));
+    let init_message = Message::InitSession(p.clone(), g.clone(), (*a).borrow().get_public_key());
 
-    let init_message = Message::InitSession(p.clone(), g.clone(), (*rc_a).borrow().get_public_key());
+    b.borrow_mut().receive_message(a.clone(), init_message);
 
-    receive_message(rc_a, rc_b, init_message);
+    a.borrow_mut().send_encrypted_message("hi from a".as_bytes());
+
+    b.borrow_mut().send_encrypted_message("hi from b".as_bytes());
 
   }
 }
