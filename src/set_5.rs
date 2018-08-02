@@ -1,3 +1,4 @@
+use std::fmt;
 use rand::{OsRng};
 use bigint::{RandBigInt, BigUint};
 use std::cell::RefCell;
@@ -18,18 +19,41 @@ pub enum Message {
 pub trait Entity {
   fn receive_message(&mut self, Rc<RefCell<Entity>>, Message);
   fn send_encrypted_message(&mut self, &[u8]);
+  fn am_honest(&self) -> bool;
+  fn get_name(&self) -> &str;
+}
+
+impl fmt::Debug for Entity {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self.am_honest() {
+      true => {
+        write!(f, "{}: HonestEntity", self.get_name())
+      },
+      false => {
+        write!(f, "{}: MiTMEntity", self.get_name())
+      }
+    }
+  }
 }
 
 pub struct HonestEntity {
+  pub name: String,
   pub rc: Option<Rc<RefCell<HonestEntity>>>,
   pub keypair: Option<DHKeyPair>,
   pub partner: Option<Rc<RefCell<Entity>>>,
   pub session_key: Option<Vec<u8>>,
 }
 
+impl fmt::Debug for HonestEntity {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "HonestEntity")
+  }
+}
+
 impl Entity for HonestEntity {
   fn receive_message(&mut self, sender: Rc<RefCell<Entity>>, message: Message) -> () {
-    println!("received message {:?}", &message);
+    println!("Honest received message {:?}", &message);
+    println!("sender = {:?}", sender.borrow());
     match message {
       Message::InitSession(p, g, public_key) => {
         let keypair = DHKeyPair::new(&p, &g);
@@ -38,12 +62,14 @@ impl Entity for HonestEntity {
 
         let my_public_key = keypair.public_key.clone();
 
-        self.keypair = Some(keypair);
-        self.partner = Some(sender);
+        // self.keypair = Some(keypair);
+        // self.partner = Some(sender);
 
-        let response = Message::AckInit(my_public_key);
+        // let response = Message::AckInit(my_public_key);
 
-        self.partner.as_ref().unwrap().borrow_mut().receive_message(self.rc.as_ref().unwrap().clone(), response);
+        // println!("self.partner = {:?}", self.partner.as_ref().unwrap().borrow());
+
+        // self.partner.as_ref().unwrap().borrow_mut().receive_message(self.rc.as_ref().unwrap().clone(), response);
       },
       Message::AckInit(public_key) => {
         self.partner = Some(sender);
@@ -63,22 +89,21 @@ impl Entity for HonestEntity {
     let message = Message::Content(ciphertext, iv);
     self.partner.as_ref().unwrap().borrow_mut().receive_message(self.rc.as_ref().unwrap().clone(), message);
   }
+
+  fn am_honest(&self) -> bool {
+    true
+  }
+
+  fn get_name(&self) -> &str {
+    &self.name[..]
+  }
 }
 
-// impl Entity for HonestEntity {
-//   fn set_partner(&mut self, partner: Rc<RefCell<Entity>>) {
-
-//   }
-
-//   fn set_keypair(&mut self, keypair: DHKeyPair) {
-//     self.keypair = Some(keypair);
-//   }
-// }
-
 impl HonestEntity {
-  pub fn new() -> Rc<RefCell<HonestEntity>> {
+  pub fn new(name: String) -> Rc<RefCell<HonestEntity>> {
     let entity = Rc::new(RefCell::new(
       HonestEntity {
+        name,
         rc: None,
         keypair: None,
         partner: None,
@@ -101,27 +126,63 @@ impl HonestEntity {
   }
 }
 
-// pub struct MitMEntity {
-//   pub partner1: Option<(&dyn Entity<'a>, &'a BigUint)>,
-//   pub partner2: Option<(&dyn Entity<'a>, &'a BigUint)>,
-// }
+pub struct MiTMEntity {
+  pub name: String,
+  pub rc: Option<Rc<RefCell<MiTMEntity>>>,
+  pub partner1: Option<Rc<RefCell<Entity>>>,
+  pub partner2: Option<Rc<RefCell<Entity>>>,
+}
 
-// impl<'a> Entity<'a> for MitMEntity<'a> {
-//   fn receive_message(&mut self, sender: &'a mut dyn Entity<'a>, message: Message) -> () {
-//     match message {
-//       _ => {}
-//     }
-//   }
-// }
+impl fmt::Debug for MiTMEntity {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "MiTMEntity")
+  }
+}
 
-// impl<'a> MitMEntity<'a> {
-//   pub fn new() -> MitMEntity<'a> {
-//     MitMEntity {
-//       partner1: None,
-//       partner2: None,
-//     }
-//   }
-// }
+impl Entity for MiTMEntity {
+  fn receive_message(&mut self, sender: Rc<RefCell<Entity>>, message: Message) -> () {
+    println!("MiTM received message {:?}", &message);
+    match message {
+      Message::InitSession(p, g, public_key) => {
+        let forged = Message::InitSession(p.clone(), g.clone(), p.clone());
+        println!("self.partner2 = {:?}", self.partner2.as_ref().unwrap().borrow());
+        self.partner2.as_ref().unwrap().borrow_mut().receive_message(self.rc.as_ref().unwrap().clone(), forged);
+      },
+      Message::AckInit(public_key) => {
+      },
+      Message::Content(ciphertext, iv) => {
+      },
+    };
+  }
+
+  fn send_encrypted_message(&mut self, plaintext: &[u8]) -> () {
+  }
+
+  fn am_honest(&self) -> bool {
+    false
+  }
+
+  fn get_name(&self) -> &str {
+    &self.name[..]
+  }
+}
+
+impl MiTMEntity {
+  fn new(name: String, partner1: Rc<RefCell<Entity>>, partner2: Rc<RefCell<Entity>>) -> Rc<RefCell<MiTMEntity>> {
+    let entity = Rc::new(RefCell::new(
+      MiTMEntity {
+        name,
+        rc: None,
+        partner1: Some(partner1),
+        partner2: Some(partner2),
+      }
+    ));
+
+    (*entity).borrow_mut().rc = Some(entity.clone());
+
+    entity
+  }
+}
 
 pub struct DHKeyPair {
   pub private_key: BigUint,
@@ -232,19 +293,27 @@ mod tests {
         fffffffffffff", 16).unwrap();
     let g = BigUint::from(2 as usize);
 
-    let a = HonestEntity::new();
+    // let a = HonestEntity::new(String::from("A"));
+    // a.borrow_mut().init(&p, &g);
+    // let b = HonestEntity::new(String::from("B"));
+
+    // let init_message = Message::InitSession(p.clone(), g.clone(), (*a).borrow().get_public_key());
+
+    // b.borrow_mut().receive_message(a.clone(), init_message);
+
+    // a.borrow_mut().send_encrypted_message("hi from a".as_bytes());
+
+    // b.borrow_mut().send_encrypted_message("hi from b".as_bytes());
+
+    let a = HonestEntity::new(String::from("A"));
     a.borrow_mut().init(&p, &g);
-    let b = HonestEntity::new();
+    let b = HonestEntity::new(String::from("B"));
 
-    // let e2 = Entity::new(&p, &g);
+    let m = MiTMEntity::new(String::from("M"), a.clone(), b.clone());
 
-    let init_message = Message::InitSession(p.clone(), g.clone(), (*a).borrow().get_public_key());
+    let init_message = Message::InitSession(p.clone(), g.clone(), p.clone());
 
-    b.borrow_mut().receive_message(a.clone(), init_message);
-
-    a.borrow_mut().send_encrypted_message("hi from a".as_bytes());
-
-    b.borrow_mut().send_encrypted_message("hi from b".as_bytes());
+    m.borrow_mut().receive_message(a.clone(), init_message);
 
   }
 }
