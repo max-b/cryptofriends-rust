@@ -1,4 +1,5 @@
 use std::fmt;
+use std::collections::HashMap;
 use rand::{OsRng};
 use bigint::{RandBigInt, BigUint};
 use std::cell::RefCell;
@@ -11,8 +12,11 @@ use utils::bytes::{generate_random_aes_key};
 
 #[derive(Debug)]
 pub enum Message {
-  InitSession(BigUint, BigUint, BigUint), // p, g, public_key
-  AckInit(BigUint), // public key
+  InitSessionWithPublicKey(BigUint, BigUint, BigUint), // p, g, public_key
+  InitSession(BigUint, BigUint), // p, g
+  AckInitWithPublicKey(BigUint), // public key
+  SendPublicKey(BigUint), // public key
+  AckInit,
   Content(Vec<u8>, Vec<u8>), // ciphertext, iv
 }
 
@@ -49,6 +53,7 @@ pub struct HonestEntity {
   pub keypair: Option<DHKeyPair>,
   pub partner: Option<Rc<RefCell<Entity>>>,
   pub session_key: Option<Vec<u8>>,
+  pub sent_public_key: bool,
 }
 
 impl fmt::Debug for HonestEntity {
@@ -61,7 +66,7 @@ impl Entity for HonestEntity {
   fn receive_message(&mut self, sender: Rc<RefCell<Entity>>, message: Rc<Message>) -> Action {
     println!("Honest received message {:?}", &message);
     match *message {
-      Message::InitSession(ref p, ref g, ref public_key) => {
+      Message::InitSessionWithPublicKey(ref p, ref g, ref public_key) => {
         let keypair = DHKeyPair::new(p, g);
 
         self.session_key = Some(keypair.gen_aes_session_key(public_key).clone());
@@ -71,17 +76,50 @@ impl Entity for HonestEntity {
         self.keypair = Some(keypair);
         self.partner = Some(sender);
 
-        let response = Rc::new(Message::AckInit(my_public_key));
+        let response = Rc::new(Message::AckInitWithPublicKey(my_public_key));
 
         println!("self.partner = {:?}", self.partner.as_ref().unwrap().borrow());
 
         return Action::SendMessage(self.id, self.partner.as_ref().unwrap().borrow().get_id(), response);
       },
-      Message::AckInit(ref public_key) => {
+      Message::InitSession(ref p, ref g) => {
+        let keypair = DHKeyPair::new(p, g);
+
+        self.keypair = Some(keypair);
+        self.partner = Some(sender);
+
+        let response = Rc::new(Message::AckInit);
+
+        println!("self.partner = {:?}", self.partner.as_ref().unwrap().borrow());
+
+        return Action::SendMessage(self.id, self.partner.as_ref().unwrap().borrow().get_id(), response);
+      },
+      Message::AckInitWithPublicKey(ref public_key) => {
+        self.partner = Some(sender);
+
+        self.session_key = Some(self.keypair.as_ref().unwrap().gen_aes_session_key(public_key).clone());
+      },
+      Message::SendPublicKey(ref public_key) => {
         self.partner = Some(sender);
 
         self.session_key = Some(self.keypair.as_ref().unwrap().gen_aes_session_key(public_key).clone());
 
+        let my_public_key = self.keypair.as_ref().unwrap().public_key.clone();
+
+        if !self.sent_public_key {
+            let response = Rc::new(Message::SendPublicKey(my_public_key));
+
+            return Action::SendMessage(self.id, self.partner.as_ref().unwrap().borrow().get_id(), response);
+        }
+      },
+      Message::AckInit => {
+        self.partner = Some(sender);
+
+        let my_public_key = self.keypair.as_ref().unwrap().public_key.clone();
+        let response = Rc::new(Message::SendPublicKey(my_public_key));
+
+        self.sent_public_key = true;
+        return Action::SendMessage(self.id, self.partner.as_ref().unwrap().borrow().get_id(), response);
       },
       Message::Content(ref ciphertext, ref iv) => {
         let plaintext = cbc_decrypt(self.session_key.as_ref().unwrap(), &ciphertext, &iv);
@@ -115,6 +153,7 @@ impl HonestEntity {
         keypair: None,
         partner: None,
         session_key: None,
+        sent_public_key: false,
       }
     ));
 
@@ -147,6 +186,7 @@ pub struct MiTMEntity {
   pub partner1: Option<Rc<RefCell<Entity>>>,
   pub partner2: Option<Rc<RefCell<Entity>>>,
   pub p: Option<BigUint>,
+  pub g: Option<BigUint>,
 }
 
 impl fmt::Debug for MiTMEntity {
@@ -156,24 +196,58 @@ impl fmt::Debug for MiTMEntity {
 }
 
 impl Entity for MiTMEntity {
-  fn receive_message(&mut self, _sender: Rc<RefCell<Entity>>, message: Rc<Message>) -> Action {
+  fn receive_message(&mut self, sender: Rc<RefCell<Entity>>, message: Rc<Message>) -> Action {
     println!("MiTM received message {:?}", &message);
     match *message {
-      Message::InitSession(ref p, ref g, ref _public_key) => {
+      Message::InitSessionWithPublicKey(ref p, ref g, ref _public_key) => {
         self.p = Some(p.clone());
-        let forged = Rc::new(Message::InitSession(p.clone(), g.clone(), p.clone()));
+        let forged = Rc::new(Message::InitSessionWithPublicKey(p.clone(), g.clone(), p.clone()));
 
         return Action::SendMessage(self.id, self.partner2.as_ref().unwrap().borrow().get_id(), forged);
       },
-      Message::AckInit(ref _public_key) => {
-        let response = Rc::new(Message::AckInit(self.p.as_ref().unwrap().clone()));
+      Message::InitSession(ref p, ref g) => {
+        self.p = Some(p.clone());
+        let forged = if self.g.is_none() {
+            Rc::new(Message::InitSession(p.clone(), g.clone()))
+        } else {
+            Rc::new(Message::InitSession(p.clone(), self.g.as_ref().unwrap().clone()))
+        };
+
+        return Action::SendMessage(self.id, self.partner2.as_ref().unwrap().borrow().get_id(), forged);
+      },
+      Message::AckInitWithPublicKey(ref _public_key) => {
+        let response = Rc::new(Message::AckInitWithPublicKey(self.p.as_ref().unwrap().clone()));
 
         return Action::SendMessage(self.id, self.partner1.as_ref().unwrap().borrow().get_id(), response);
+      },
+      Message::AckInit => {
+        let response = Rc::new(Message::AckInit);
+
+        return Action::SendMessage(self.id, self.partner1.as_ref().unwrap().borrow().get_id(), response);
+      },
+      Message::SendPublicKey(ref public_key) => {
+        let response = Rc::new(Message::SendPublicKey(public_key.clone()));
+
+        let receiver_id = if sender.borrow().get_id() == self.partner1.as_ref().unwrap().borrow().get_id() {
+            self.partner2.as_ref().unwrap().borrow().get_id()
+        } else {
+            self.partner1.as_ref().unwrap().borrow().get_id()
+        };
+
+        return Action::SendMessage(self.id, receiver_id, response);
       },
       Message::Content(ref ciphertext, ref iv) => {
         let mut hasher = Sha1::new();
 
-        hasher.input(&[0]);
+        if self.g.is_none() {
+            hasher.input(&[0]);
+        } else if *(self.g.as_ref().unwrap()) == BigUint::from(1 as usize) {
+            hasher.input(&[1]);
+        } else if *(self.g.as_ref().unwrap()) == *(self.p.as_ref().unwrap()) {
+            hasher.input(&[0]);
+        } else if *(self.g.as_ref().unwrap()) == (self.p.as_ref().unwrap() - BigUint::from(1 as usize)) {
+            hasher.input(&[1]);
+        }
 
         let output_size = hasher.output_bits();
         let mut session_key = vec![0; output_size / 8];
@@ -203,12 +277,13 @@ impl Entity for MiTMEntity {
 }
 
 impl MiTMEntity {
-  pub fn new(id: usize, name: String, partner1: Rc<RefCell<Entity>>, partner2: Rc<RefCell<Entity>>) -> Rc<RefCell<MiTMEntity>> {
+  pub fn new(id: usize, name: String, partner1: Rc<RefCell<Entity>>, partner2: Rc<RefCell<Entity>>, g: Option<BigUint>) -> Rc<RefCell<MiTMEntity>> {
     let entity = Rc::new(RefCell::new(
       MiTMEntity {
         id,
         name,
         p: None,
+        g,
         rc: None,
         partner1: Some(partner1),
         partner2: Some(partner2),
@@ -265,6 +340,24 @@ impl DHKeyPair {
     // TODO: keep some more global notion of aes keysize!
     output_bytes.truncate(16);
     output_bytes
+  }
+}
+
+pub fn message_loop(map: &HashMap<usize, Rc<RefCell<Entity>>>, a: Rc<RefCell<Entity>>, b: Rc<RefCell<Entity>>, first_message: Rc<Message>) -> () {
+
+  let mut res = b.borrow_mut().receive_message(a.clone(), first_message);
+
+  loop {
+    match res {
+      Action::SendMessage(sender_id, receiver_id, m) => {
+        // Lookup receiver, send message to them
+        let receiver = map.get(&receiver_id).unwrap();
+        let sender = map.get(&sender_id).unwrap();
+        res = receiver.borrow_mut().receive_message(sender.clone(), m.clone());
+      },
+      Action::Finish => { break; },
+      Action::Start => {},
+    }
   }
 }
 
@@ -337,38 +430,25 @@ mod tests {
     a.borrow_mut().init(&p, &g);
     let b = HonestEntity::new(1, String::from("B"));
 
-    let init_message = Rc::new(Message::InitSession(p.clone(), g.clone(), (*a).borrow().get_public_key()));
+    let init_message = Rc::new(Message::InitSessionWithPublicKey(p.clone(), g.clone(), (*a).borrow().get_public_key()));
 
     let mut map: HashMap<usize, Rc<RefCell<Entity>>> = HashMap::new();
 
     map.insert(0, a.clone());
     map.insert(1, b.clone());
 
-    let mut res = b.borrow_mut().receive_message(a.clone(), init_message);
-
-    loop {
-      match res {
-        Action::SendMessage(sender_id, receiver_id, m) => {
-          // Lookup receiver, send message to them
-          let receiver = map.get(&receiver_id).unwrap();
-          let sender = map.get(&sender_id).unwrap();
-          res = receiver.borrow_mut().receive_message(sender.clone(), m.clone());
-        },
-        Action::Finish => { break; },
-        Action::Start => {},
-      }
-    }
+    message_loop(&map, a.clone(), b.clone(), init_message);
 
     a.borrow_mut().send_encrypted_message("hi from a".as_bytes());
 
     b.borrow_mut().send_encrypted_message("hi from b".as_bytes());
 
-    // Ok now with a MiTM
+    println!("\n== Now with a MiTM ==");
     let a = HonestEntity::new(0, String::from("A"));
     a.borrow_mut().init(&p, &g);
     let b = HonestEntity::new(1, String::from("B"));
 
-    let m = MiTMEntity::new(2, String::from("M"), a.clone(), b.clone());
+    let m = MiTMEntity::new(2, String::from("M"), a.clone(), b.clone(), None);
 
     let mut map: HashMap<usize, Rc<RefCell<Entity>>> = HashMap::new();
 
@@ -376,26 +456,101 @@ mod tests {
     map.insert(1, b.clone());
     map.insert(2, m.clone());
 
-    let init_message = Rc::new(Message::InitSession(p.clone(), g.clone(), p.clone()));
+    let init_message = Rc::new(Message::InitSessionWithPublicKey(p.clone(), g.clone(), p.clone()));
 
-    let mut res = m.borrow_mut().receive_message(a.clone(), init_message);
-
-    loop {
-      match res {
-        Action::SendMessage(sender_id, receiver_id, m) => {
-          // Lookup receiver, send message to them
-          let receiver = map.get(&receiver_id).unwrap();
-          let sender = map.get(&sender_id).unwrap();
-          res = receiver.borrow_mut().receive_message(sender.clone(), m.clone());
-        },
-        Action::Finish => { break; },
-        Action::Start => {},
-      }
-    }
+    message_loop(&map, a.clone(), m.clone(), init_message);
 
     a.borrow_mut().send_encrypted_message("hi from a".as_bytes());
 
     b.borrow_mut().send_encrypted_message("hi from b".as_bytes());
 
+  }
+
+  #[test]
+  fn challenge_35() {
+    let p = BigUint::parse_bytes(b"22405534230753963835153736737\
+        ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024\
+        e088a67cc74020bbea63b139b22514a08798e3404ddef9519b3cd\
+        3a431b302b0a6df25f14374fe1356d6d51c245e485b576625e7ec\
+        6f44c42e9a637ed6b0bff5cb6f406b7edee386bfb5a899fa5ae9f\
+        24117c4b1fe649286651ece45b3dc2007cb8a163bf0598da48361\
+        c55d39a69163fa8fd24cf5f83655d23dca3ad961c62f356208552\
+        bb9ed529077096966d670c354e4abc9804f1746c08ca237327fff\
+        fffffffffffff", 16).unwrap();
+    let g = BigUint::from(2 as usize);
+
+    let a = HonestEntity::new(0, String::from("A"));
+    a.borrow_mut().init(&p, &g);
+    let b = HonestEntity::new(1, String::from("B"));
+
+    let init_message = Rc::new(Message::InitSession(p.clone(), g.clone()));
+
+    let mut map: HashMap<usize, Rc<RefCell<Entity>>> = HashMap::new();
+
+    map.insert(0, a.clone());
+    map.insert(1, b.clone());
+
+    message_loop(&map, a.clone(), b.clone(), init_message);
+
+    a.borrow_mut().send_encrypted_message("hi from a".as_bytes());
+
+    b.borrow_mut().send_encrypted_message("hi from b".as_bytes());
+
+    println!("\n== Now with a MiTM who sets g to 1 ==");
+    let a = HonestEntity::new(0, String::from("A"));
+    a.borrow_mut().init(&p, &g);
+    let b = HonestEntity::new(1, String::from("B"));
+
+    let m = MiTMEntity::new(2, String::from("M"), a.clone(), b.clone(), Some(BigUint::from(1 as usize)));
+
+    let mut map: HashMap<usize, Rc<RefCell<Entity>>> = HashMap::new();
+
+    map.insert(0, a.clone());
+    map.insert(1, b.clone());
+    map.insert(2, m.clone());
+
+    let init_message = Rc::new(Message::InitSession(p.clone(), g.clone()));
+
+    message_loop(&map, a.clone(), m.clone(), init_message);
+
+    a.borrow_mut().send_encrypted_message("hi from a".as_bytes());
+
+    println!("\n== Now with a MiTM who sets g to p ==");
+    let a = HonestEntity::new(0, String::from("A"));
+    a.borrow_mut().init(&p, &g);
+    let b = HonestEntity::new(1, String::from("B"));
+
+    let m = MiTMEntity::new(2, String::from("M"), a.clone(), b.clone(), Some(p.clone()));
+
+    let mut map: HashMap<usize, Rc<RefCell<Entity>>> = HashMap::new();
+
+    map.insert(0, a.clone());
+    map.insert(1, b.clone());
+    map.insert(2, m.clone());
+
+    let init_message = Rc::new(Message::InitSession(p.clone(), g.clone()));
+
+    message_loop(&map, a.clone(), m.clone(), init_message);
+
+    a.borrow_mut().send_encrypted_message("hi from a".as_bytes());
+
+    println!("\n== Now with a MiTM who sets g to p-1 ==");
+    let a = HonestEntity::new(0, String::from("A"));
+    a.borrow_mut().init(&p, &g);
+    let b = HonestEntity::new(1, String::from("B"));
+
+    let m = MiTMEntity::new(2, String::from("M"), a.clone(), b.clone(), Some(p.clone() - BigUint::from(1 as usize)));
+
+    let mut map: HashMap<usize, Rc<RefCell<Entity>>> = HashMap::new();
+
+    map.insert(0, a.clone());
+    map.insert(1, b.clone());
+    map.insert(2, m.clone());
+
+    let init_message = Rc::new(Message::InitSession(p.clone(), g.clone()));
+
+    message_loop(&map, a.clone(), m.clone(), init_message);
+
+    a.borrow_mut().send_encrypted_message("hi from a".as_bytes());
   }
 }
