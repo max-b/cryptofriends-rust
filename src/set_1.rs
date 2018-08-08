@@ -1,6 +1,6 @@
 use std::fs::File;
-use std::io::BufReader;
 use std::io::prelude::*;
+use std::io::BufReader;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::str;
@@ -235,7 +235,7 @@ Play that funky music A little louder now
 Play that funky music, white boy Come on, Come on, Come on
 Play that funky music",
             ).replace("\n", "")
-                .replace(" ", "");
+            .replace(" ", "");
 
             Self {
                 decryption_answer: answer,

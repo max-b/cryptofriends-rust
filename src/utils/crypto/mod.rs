@@ -1,17 +1,16 @@
 pub mod prng;
 
 use super::bytes::{pad_bytes, xor};
+use bigint::{BigUint, RandBigInt};
 use byteorder::{LittleEndian, WriteBytesExt};
-use rand::{OsRng};
-use bigint::{RandBigInt, BigUint};
 use crypto::aessafe;
-use crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
+use crypto::cryptoutil::write_u32_be;
 use crypto::digest::Digest;
-use crypto::sha1::{Sha1};
-use crypto::cryptoutil::{write_u32_be};
+use crypto::sha1::Sha1;
+use crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
+use rand::OsRng;
 
 use self::prng::Prng;
-
 
 pub fn pkcs_7_unpad(input: &[u8]) -> Vec<u8> {
     let amount_padded = input[input.len() - 1];
@@ -190,7 +189,13 @@ pub fn aes_ctr(key: &[u8], input: &[u8], nonce: &[u8]) -> Vec<u8> {
     output
 }
 
-pub fn edit_aes_ctr(ciphertext: &[u8], key: &[u8], nonce: &[u8], offset: usize, newtext: &[u8]) -> Vec<u8> {
+pub fn edit_aes_ctr(
+    ciphertext: &[u8],
+    key: &[u8],
+    nonce: &[u8],
+    offset: usize,
+    newtext: &[u8],
+) -> Vec<u8> {
     let block_size = key.len();
 
     let mut output = Vec::new();
@@ -214,7 +219,8 @@ pub fn edit_aes_ctr(ciphertext: &[u8], key: &[u8], nonce: &[u8], offset: usize, 
     let mut block_count = start_block as u64;
 
     let mut ciphertext_to_edit = Vec::new();
-    ciphertext_to_edit.extend_from_slice(&ciphertext[start_block * block_size..end_of_ciphertext_to_edit]);
+    ciphertext_to_edit
+        .extend_from_slice(&ciphertext[start_block * block_size..end_of_ciphertext_to_edit]);
 
     let ciphertext_blocks = ciphertext_to_edit.chunks(block_size);
 
@@ -237,7 +243,7 @@ pub fn edit_aes_ctr(ciphertext: &[u8], key: &[u8], nonce: &[u8], offset: usize, 
 
         let newtext_start = match block_count as usize {
             count if count == start_block => 0,
-            count => ((count * block_size) - offset)
+            count => ((count * block_size) - offset),
         };
 
         let newtext_end = {
@@ -258,13 +264,19 @@ pub fn edit_aes_ctr(ciphertext: &[u8], key: &[u8], nonce: &[u8], offset: usize, 
 
         newtext_to_splice.extend_from_slice(&newtext[newtext_start..newtext_end]);
         if block_count as usize == start_block {
-            plaintext.splice(block_offset..newtext_to_splice.len() + block_offset, newtext_to_splice.into_iter());
+            plaintext.splice(
+                block_offset..newtext_to_splice.len() + block_offset,
+                newtext_to_splice.into_iter(),
+            );
         } else {
             plaintext.splice(0..newtext_to_splice.len(), newtext_to_splice.into_iter());
         }
 
         let xor_result = xor(&keystream[0..plaintext_len], &plaintext[..]);
-        output.splice(block_count as usize * block_size..block_count as usize * block_size + xor_result.len(), xor_result.into_iter());
+        output.splice(
+            block_count as usize * block_size..block_count as usize * block_size + xor_result.len(),
+            xor_result.into_iter(),
+        );
         block_count += 1;
     }
 
@@ -301,7 +313,6 @@ pub fn sha1(key: &[u8], message: &[u8]) -> Vec<u8> {
 // In order to use this function, message must be already padded
 // to block size
 pub fn sha1_unpadded(message: &[u8]) -> Vec<u8> {
-
     let mut sha_object = Sha1::new();
 
     let output_size = sha_object.output_bits();
@@ -354,8 +365,11 @@ pub fn md_padding_with_length(_input: &[u8], input_len: usize) -> Vec<u8> {
     // previous byte (1000 0000)
     padding[0] = 128;
 
-    write_u32_be(&mut padding[diff - 8..diff - 4], (input_len_bits >> 32) as u32 );
-    write_u32_be(&mut padding[diff - 4..diff], input_len_bits as u32 );
+    write_u32_be(
+        &mut padding[diff - 8..diff - 4],
+        (input_len_bits >> 32) as u32,
+    );
+    write_u32_be(&mut padding[diff - 4..diff], input_len_bits as u32);
 
     padding
 }
@@ -374,14 +388,16 @@ pub fn md_padding(input: &[u8]) -> Vec<u8> {
     // previous byte (1000 0000)
     padding[0] = 128;
 
-    write_u32_be(&mut padding[diff - 8..diff - 4], (input_len_bits >> 32) as u32 );
-    write_u32_be(&mut padding[diff - 4..diff], input_len_bits as u32 );
+    write_u32_be(
+        &mut padding[diff - 8..diff - 4],
+        (input_len_bits >> 32) as u32,
+    );
+    write_u32_be(&mut padding[diff - 4..diff], input_len_bits as u32);
 
     padding
 }
 
 pub fn md_pad(input: &[u8]) -> Vec<u8> {
-
     let padding = md_padding(&input);
     let mut output = Vec::new();
     output.extend_from_slice(&input[..]);
@@ -391,50 +407,50 @@ pub fn md_pad(input: &[u8]) -> Vec<u8> {
 }
 
 pub struct DHKeyPair {
-  pub private_key: BigUint,
-  pub public_key: BigUint,
-  pub p: BigUint,
+    pub private_key: BigUint,
+    pub public_key: BigUint,
+    pub p: BigUint,
 }
 
 impl DHKeyPair {
-  pub fn new(p: &BigUint, g: &BigUint)-> DHKeyPair {
-    let mut rng = OsRng::new().expect("Can't get rng");
-    let private_key = rng.gen_biguint_below(&p);
+    pub fn new(p: &BigUint, g: &BigUint) -> DHKeyPair {
+        let mut rng = OsRng::new().expect("Can't get rng");
+        let private_key = rng.gen_biguint_below(&p);
 
-    let public_key = g.modpow(&private_key, &p);
+        let public_key = g.modpow(&private_key, &p);
 
-    DHKeyPair {
-      private_key,
-      public_key,
-      p: p.clone(),
+        DHKeyPair {
+            private_key,
+            public_key,
+            p: p.clone(),
+        }
     }
-  }
 
-  pub fn get_public_key(&self) -> BigUint {
-    self.public_key.clone()
-  }
+    pub fn get_public_key(&self) -> BigUint {
+        self.public_key.clone()
+    }
 
-  pub fn gen_session_key(&self, b: &BigUint) -> BigUint {
-    let b = b.clone();
-    let s1 = b.modpow(&self.private_key, &self.p);
-    println!("session key (before aes) = {:?}", &s1);
-    s1
-  }
+    pub fn gen_session_key(&self, b: &BigUint) -> BigUint {
+        let b = b.clone();
+        let s1 = b.modpow(&self.private_key, &self.p);
+        println!("session key (before aes) = {:?}", &s1);
+        s1
+    }
 
-  pub fn gen_aes_session_key(&self, b: &BigUint) -> Vec<u8> {
-    let s = self.gen_session_key(b);
-    let mut hasher = Sha1::new();
+    pub fn gen_aes_session_key(&self, b: &BigUint) -> Vec<u8> {
+        let s = self.gen_session_key(b);
+        let mut hasher = Sha1::new();
 
-    hasher.input(&s.to_bytes_le()[..]);
+        hasher.input(&s.to_bytes_le()[..]);
 
-    let output_size = hasher.output_bits();
-    let mut output_bytes = vec![0; output_size / 8];
+        let output_size = hasher.output_bits();
+        let mut output_bytes = vec![0; output_size / 8];
 
-    hasher.result(&mut output_bytes);
-    // TODO: keep some more global notion of aes keysize!
-    output_bytes.truncate(16);
-    output_bytes
-  }
+        hasher.result(&mut output_bytes);
+        // TODO: keep some more global notion of aes keysize!
+        output_bytes.truncate(16);
+        output_bytes
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -446,42 +462,79 @@ mod tests {
         let key = generate_random_aes_key();
         let initial_plaintext = "Say -- Play that funky music Say, go white boy, go white boy go
         play that funky music Go white boy, go white boy, go
-        Lay down and boogie and play that funky music till you die.".as_bytes();
+        Lay down and boogie and play that funky music till you die."
+            .as_bytes();
 
         let nonce: Vec<u8> = vec![0; 8];
         let initial_ciphertext = aes_ctr(&key[..], &initial_plaintext[..], &nonce[..]);
 
         let text_to_insert = "HIHIHIHIHIHIHIHI".as_bytes();
         let offset = 101;
-        let new_ciphertext = edit_aes_ctr(&initial_ciphertext[..], &key[..], &nonce[..], offset, text_to_insert);
+        let new_ciphertext = edit_aes_ctr(
+            &initial_ciphertext[..],
+            &key[..],
+            &nonce[..],
+            offset,
+            text_to_insert,
+        );
 
         let plaintext = aes_ctr(&key[..], &new_ciphertext[..], &nonce[..]);
 
-        assert_eq!(&plaintext[offset..offset + text_to_insert.len()], &text_to_insert[..]);
+        assert_eq!(
+            &plaintext[offset..offset + text_to_insert.len()],
+            &text_to_insert[..]
+        );
 
         let text_to_insert = "HIHI".as_bytes();
         let offset = new_ciphertext.len() - text_to_insert.len() - 1;
-        let new_ciphertext = edit_aes_ctr(&initial_ciphertext[..], &key[..], &nonce[..], offset, text_to_insert);
+        let new_ciphertext = edit_aes_ctr(
+            &initial_ciphertext[..],
+            &key[..],
+            &nonce[..],
+            offset,
+            text_to_insert,
+        );
 
         let plaintext = aes_ctr(&key[..], &new_ciphertext[..], &nonce[..]);
 
-        assert_eq!(&plaintext[offset..offset + text_to_insert.len()], &text_to_insert[..]);
+        assert_eq!(
+            &plaintext[offset..offset + text_to_insert.len()],
+            &text_to_insert[..]
+        );
 
         let text_to_insert = "A".as_bytes();
         let offset = new_ciphertext.len() - text_to_insert.len() - 1;
-        let new_ciphertext = edit_aes_ctr(&initial_ciphertext[..], &key[..], &nonce[..], offset, text_to_insert);
+        let new_ciphertext = edit_aes_ctr(
+            &initial_ciphertext[..],
+            &key[..],
+            &nonce[..],
+            offset,
+            text_to_insert,
+        );
 
         let plaintext = aes_ctr(&key[..], &new_ciphertext[..], &nonce[..]);
 
-        assert_eq!(&plaintext[offset..offset + text_to_insert.len()], &text_to_insert[..]);
+        assert_eq!(
+            &plaintext[offset..offset + text_to_insert.len()],
+            &text_to_insert[..]
+        );
 
         let text_to_insert = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".as_bytes();
         let offset = new_ciphertext.len() - text_to_insert.len() - 1;
-        let new_ciphertext = edit_aes_ctr(&initial_ciphertext[..], &key[..], &nonce[..], offset, text_to_insert);
+        let new_ciphertext = edit_aes_ctr(
+            &initial_ciphertext[..],
+            &key[..],
+            &nonce[..],
+            offset,
+            text_to_insert,
+        );
 
         let plaintext = aes_ctr(&key[..], &new_ciphertext[..], &nonce[..]);
 
-        assert_eq!(&plaintext[offset..offset + text_to_insert.len()], &text_to_insert[..]);
+        assert_eq!(
+            &plaintext[offset..offset + text_to_insert.len()],
+            &text_to_insert[..]
+        );
     }
 
     #[test]

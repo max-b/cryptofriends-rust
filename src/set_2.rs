@@ -177,7 +177,7 @@ pub fn find_block_size(oracle: &Fn(&[u8]) -> Vec<u8>) -> usize {
 mod tests {
     use super::*;
     use utils::crypto::strip_pkcs_padding;
-    use utils::misc::{admin_string_encrypt_challenge, admin_string_decrypt_and_check};
+    use utils::misc::{admin_string_decrypt_and_check, admin_string_encrypt_challenge};
 
     #[test]
     fn challenge_9() {
@@ -475,16 +475,20 @@ mod tests {
     #[test]
     fn challenge_16() {
         let iv: Vec<u8> = vec![0; 16];
-        let encrypted = admin_string_encrypt_challenge("testing 123;admin=true;blah", &iv[..], &cbc_encrypt);
-        let decrypted_contains_admin = admin_string_decrypt_and_check(&encrypted[..], &iv[..], &cbc_decrypt);
+        let encrypted =
+            admin_string_encrypt_challenge("testing 123;admin=true;blah", &iv[..], &cbc_encrypt);
+        let decrypted_contains_admin =
+            admin_string_decrypt_and_check(&encrypted[..], &iv[..], &cbc_decrypt);
         assert!(!decrypted_contains_admin);
 
         // prepend string is 32 bytes
-        let mut encrypted = admin_string_encrypt_challenge("\x00admin\x00true", &iv[..], &cbc_encrypt);
+        let mut encrypted =
+            admin_string_encrypt_challenge("\x00admin\x00true", &iv[..], &cbc_encrypt);
         encrypted[16] ^= 59; // ascii ";"
         encrypted[22] ^= 61; // ascii "="
 
-        let decrypted_contains_admin = admin_string_decrypt_and_check(&encrypted[..], &iv[..], &cbc_decrypt);
+        let decrypted_contains_admin =
+            admin_string_decrypt_and_check(&encrypted[..], &iv[..], &cbc_decrypt);
         assert!(decrypted_contains_admin);
     }
 

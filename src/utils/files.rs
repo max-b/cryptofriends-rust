@@ -18,7 +18,9 @@ pub fn read_file_as_bytes(path: &PathBuf) -> Vec<u8> {
 pub fn read_base64_file_as_bytes(path: &PathBuf) -> Vec<u8> {
     let buffer = read_file_as_bytes(&path);
 
-    base64_to_bytes(&str::from_utf8(&buffer)
-        .expect("Error reading string from_utf8 bytes")
-        .replace('\n', ""))
+    base64_to_bytes(
+        &str::from_utf8(&buffer)
+            .expect("Error reading string from_utf8 bytes")
+            .replace('\n', ""),
+    )
 }

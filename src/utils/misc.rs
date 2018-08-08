@@ -7,13 +7,11 @@ use std::str;
 
 fn get_chi_squared(buf: &[u8]) -> f64 {
     let english_freq = vec![
-        0.0651738, 0.0124248, 0.0217339, 0.0349835,  //'A', 'B', 'C', 'D',...
-        0.1041442, 0.0197881, 0.0158610, 0.0492888,
-        0.0558094, 0.0009033, 0.0050529, 0.0331490,
-        0.0202124, 0.0564513, 0.0596302, 0.0137645,
-        0.0008606, 0.0497563, 0.0515760, 0.0729357,
-        0.0225134, 0.0082903, 0.0171272, 0.0013692,
-        0.0145984, 0.0007836, 0.1918182,  //'Y', 'Z', ' '
+        0.0651738, 0.0124248, 0.0217339, 0.0349835, //'A', 'B', 'C', 'D',...
+        0.1041442, 0.0197881, 0.0158610, 0.0492888, 0.0558094, 0.0009033, 0.0050529, 0.0331490,
+        0.0202124, 0.0564513, 0.0596302, 0.0137645, 0.0008606, 0.0497563, 0.0515760, 0.0729357,
+        0.0225134, 0.0082903, 0.0171272, 0.0013692, 0.0145984, 0.0007836,
+        0.1918182, //'Y', 'Z', ' '
     ];
 
     let ordered_letters = String::from("abcdefghijklmnopqrstuvwxyz ");
@@ -148,7 +146,8 @@ pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
 
         // TODO: all of this could probably be made nicer with a collection/combination
         let average_dist: f64 = (dist_1_2 + dist_1_3 + dist_1_4 + dist_2_3 + dist_2_4 + dist_3_4)
-            as f64 / (6.0 * keysize as f64);
+            as f64
+            / (6.0 * keysize as f64);
 
         if let Some(_) = goal_keysize {
             if average_dist < goal_dist {
@@ -166,8 +165,11 @@ pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
 
 thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = generate_random_aes_key());
 
-pub fn admin_string_encrypt_challenge(input: &str, iv: &[u8],  encrypt: &Fn(&[u8], &[u8], &[u8]) -> Vec<u8>) -> Vec<u8> {
-
+pub fn admin_string_encrypt_challenge(
+    input: &str,
+    iv: &[u8],
+    encrypt: &Fn(&[u8], &[u8], &[u8]) -> Vec<u8>,
+) -> Vec<u8> {
     let mut quoted_input = str::replace(input, ";", "\";\"");
     quoted_input = str::replace(&quoted_input[..], "=", "\"=\"");
 
@@ -184,7 +186,11 @@ pub fn admin_string_encrypt_challenge(input: &str, iv: &[u8],  encrypt: &Fn(&[u8
     CONSISTENT_RANDOM_KEY.with(|k| encrypt(&k[..], &plaintext[..], &iv[..]))
 }
 
-pub fn admin_string_decrypt_and_check(ciphertext: &[u8], iv: &[u8], decrypt: &Fn(&[u8], &[u8], &[u8]) -> Result<Vec<u8>, &'static str>) -> bool {
+pub fn admin_string_decrypt_and_check(
+    ciphertext: &[u8],
+    iv: &[u8],
+    decrypt: &Fn(&[u8], &[u8], &[u8]) -> Result<Vec<u8>, &'static str>,
+) -> bool {
     let mut plaintext = Vec::new();
 
     CONSISTENT_RANDOM_KEY.with(|k| {

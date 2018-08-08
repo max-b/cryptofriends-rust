@@ -1,13 +1,13 @@
 use rand::{OsRng, Rng};
 use std::cmp::Ordering;
 use std::fs::File;
-use std::io::BufReader;
 use std::io::prelude::*;
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use utils::bytes::*;
+use utils::crypto::prng::{mt19937, Prng};
 use utils::crypto::{aes_ctr, cbc_decrypt, cbc_encrypt};
-use utils::crypto::prng::{Prng, mt19937};
 use utils::misc::*;
 
 thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = generate_random_aes_key());
@@ -31,9 +31,7 @@ pub fn challenge_17_encrypt(string_num: Option<usize>) -> (Vec<u8>, Vec<u8>, Vec
 
     let num = match string_num {
         Some(n) => n,
-        None => {
-            rng.gen_range(0, strings.len()) as usize
-        }
+        None => rng.gen_range(0, strings.len()) as usize,
     };
 
     let chosen_string: &String = strings.get(num).unwrap();
@@ -161,8 +159,7 @@ pub fn reused_nonce_encrypt_strings(filename: &str) -> (Vec<Vec<u8>>, Vec<u8>, V
                 let string = base64_to_bytes(&l.unwrap()[..]);
                 let result = aes_ctr(&k[..], &string[..], &nonce[..]);
                 result
-            })
-            .collect();
+            }).collect();
         (strings, nonce, k.clone())
     })
 }
@@ -252,7 +249,7 @@ pub fn untemper_left(x: u32, l: u32, w: u32, c: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::prng::mt19937::{MT19937, B, C, L, N, S, T, U, W};
+    use utils::crypto::prng::mt19937::{B, C, L, MT19937, N, S, T, U, W};
     use utils::crypto::prng::Prng;
     use utils::crypto::{pkcs_7_pad, prng_cipher};
 
@@ -395,10 +392,7 @@ mod tests {
 
         println!("plaintext_string_result = {:?}", plaintext_string_result);
 
-        assert_eq!(
-            actual_plaintext_string,
-            plaintext_string_result
-        );
+        assert_eq!(actual_plaintext_string, plaintext_string_result);
 
         let mut known_plaintext_string = String::new();
         for _ in 0..14 {
@@ -415,7 +409,7 @@ mod tests {
 
         let mut known_keystream = Vec::new();
 
-        for byte in &ciphertext[ciphertext.len()-14..] {
+        for byte in &ciphertext[ciphertext.len() - 14..] {
             known_keystream.push(byte ^ 65);
         }
         println!("known_keystream = {:?}", &known_keystream[..]);
@@ -427,14 +421,13 @@ mod tests {
         }
 
         let mut found_key = None;
-        for test_key in 0..(u32::pow(2,16) - 1) as u16 {
+        for test_key in 0..(u32::pow(2, 16) - 1) as u16 {
             let test_ciphertext = prng_cipher::<MT19937>(test_key, &test_plaintext[..]);
 
             assert_eq!(test_ciphertext.len(), ciphertext.len());
             if &test_ciphertext[ciphertext.len() - 14..] == &ciphertext[ciphertext.len() - 14..] {
                 found_key = Some(test_key);
             }
-
         }
 
         assert_eq!(found_key, Some(key));

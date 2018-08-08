@@ -1,12 +1,12 @@
 extern crate base64;
 extern crate byteorder;
 extern crate crypto;
-extern crate itertools;
-extern crate rand;
-extern crate url;
 extern crate hyper;
-extern crate reqwest;
+extern crate itertools;
 extern crate num_bigint as bigint;
+extern crate rand;
+extern crate reqwest;
+extern crate url;
 
 pub mod utils;
 
