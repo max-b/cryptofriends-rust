@@ -7,6 +7,7 @@ extern crate num_bigint as bigint;
 extern crate rand;
 extern crate reqwest;
 extern crate url;
+extern crate openssl;
 
 pub mod utils;
 

@@ -16,3 +16,7 @@ reqwest = "0.8.6"
 [dependencies.num-bigint]
 version = "0.2"
 features = ["rand"]
+
+[dependencies.openssl]
+git = "https://github.com/max-b/rust-openssl.git"
+branch = "from-u32"

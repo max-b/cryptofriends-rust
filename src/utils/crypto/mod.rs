@@ -1,3 +1,4 @@
+pub mod rsa;
 pub mod prng;
 
 use super::bytes::{pad_bytes, xor};
