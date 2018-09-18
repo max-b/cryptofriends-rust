@@ -89,6 +89,15 @@ impl RSA {
         })
     }
 
+    pub fn string_to_bignum(string: &str) -> Result<BigNum, openssl::error::ErrorStack> {
+        BigNum::from_slice(string.as_bytes())
+    }
+
+    pub fn bignum_to_string(num: &BigNum) -> String {
+        let bytes = num.to_vec();
+        String::from_utf8_lossy(&bytes[..]).to_string()
+    }
+
     pub fn encrypt(&self, plaintext: &BigNum) -> Result<BigNum, openssl::error::ErrorStack> {
         let mut c = BigNum::new()?;
         let mut ctx = BigNumContext::new()?;
@@ -103,6 +112,40 @@ impl RSA {
         m.mod_exp(ciphertext, &self.private_key, &self.n, &mut ctx).expect("mod_exp");
 
         Ok(m)
+    }
+
+    pub fn encrypt_string(&self, plaintext: &str) -> Result<BigNum, openssl::error::ErrorStack> {
+        self.encrypt(&RSA::string_to_bignum(plaintext)?)
+    }
+
+    pub fn decrypt_string(&self, ciphertext: &BigNum) -> Result<String, openssl::error::ErrorStack> {
+        let plaintext = self.decrypt(ciphertext)?;
+        Ok(RSA::bignum_to_string(&plaintext))
+    }
+
+    pub fn cube_root(n: &BigNum) -> BigNum {
+        // Do a cube root via binary search, since it's not implemented in OpenSSL BigNum :D
+
+        let mut left = BigNum::from(1);
+        let mut right = n + &BigNum::from(0); // "clone"
+
+        while left != right {
+            let midpoint = &(&left + &right)/&BigNum::from(2);
+
+            let mut cube = BigNum::new().unwrap();
+            let mut ctx = BigNumContext::new().unwrap();
+            cube.exp(&midpoint, &BigNum::from(3), &mut ctx).expect("exp");
+
+            if &cube == n {
+                return midpoint;
+            } else if &cube > n {
+                right = midpoint;
+            } else {
+                left = midpoint;
+            }
+        }
+
+        left
     }
 }
 
@@ -133,6 +176,35 @@ mod tests {
     }
 
     #[test]
+    fn test_ch_40() {
+        let plaintext = "i like to send the same message to alllllll of my friends, using my handrolled textbook RSA 😎";
+        println!("plaintext = {:?}", &plaintext);
+
+        let snooped: Vec<(BigNum, BigNum)> = (0..3).map(|_| { 
+            let rsa = RSA::new().expect("RSA::new()");
+            let ciphertext = rsa.encrypt_string(&plaintext).expect("rsa.encrypt");
+
+            (ciphertext, rsa.n)
+        }).collect();
+
+        let N: BigNum = snooped.iter().map(|(_c, n)| n)
+                               .fold(BigNum::from(1), |acc, x| &acc * x);
+
+        let result = &snooped.iter().map(|(c, n)| {
+            c * &(&(&N/n) * &(RSA::euclidean_algorithm(n, &(&N/n)).1))
+        }).fold(BigNum::from(0), |acc, x| &acc + &x) % &N;
+
+        println!("result = {:?}", result);
+
+        let cuberoot = RSA::cube_root(&result);
+        println!("cuberoot = {:?}", &cuberoot);
+
+        let plaintext = RSA::bignum_to_string(&cuberoot);
+        println!("plaintext = {:?}", &plaintext);
+
+    }
+
+    #[test]
     fn test_rsa() {
         let rsa = RSA::new().expect("RSA::new()");
         let plaintext = BigNum::from(1234567890);
@@ -142,6 +214,21 @@ mod tests {
         println!("ciphertext = {:?}", &ciphertext);
 
         let decrypted = rsa.decrypt(&ciphertext).expect("rsa.decrypt");
+        println!("decrypted = {:?}", &decrypted);
+
+        assert_eq!(&plaintext, &decrypted);
+    }
+
+    #[test]
+    fn test_rsa_string() {
+        let rsa = RSA::new().expect("RSA::new()");
+        let plaintext = "this is a test of the emergency encryption system 💖";
+        println!("plaintext = {:?}", &plaintext);
+
+        let ciphertext = rsa.encrypt_string(&plaintext).expect("rsa.encrypt");
+        println!("ciphertext = {:?}", &ciphertext);
+
+        let decrypted = rsa.decrypt_string(&ciphertext).expect("rsa.decrypt");
         println!("decrypted = {:?}", &decrypted);
 
         assert_eq!(&plaintext, &decrypted);
