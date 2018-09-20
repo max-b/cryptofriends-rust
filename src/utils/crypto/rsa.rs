@@ -1,12 +1,12 @@
 use openssl;
 use openssl::bn::{BigNum, BigNumContext};
-use std::{ops, cmp};
+use std::{cmp, ops};
 
 #[derive(Debug)]
 struct RSA {
     e: BigNum,
     private_key: BigNum,
-    n: BigNum
+    n: BigNum,
 }
 
 #[derive(Debug)]
@@ -17,12 +17,11 @@ enum CubeRoot<T> {
 
 impl RSA {
     fn division_algorithm<T>(a: &T, b: &T) -> (T, T)
-        where T:
-            From<u32> +
-            cmp::PartialEq,
-            for<'a> &'a T: ops::Div<Output = T>,
-            for<'a> &'a T: ops::Sub<Output = T>,
-            for<'a> &'a T: ops::Rem<Output = T>,
+    where
+        T: From<u32> + cmp::PartialEq,
+        for<'a> &'a T: ops::Div<Output = T>,
+        for<'a> &'a T: ops::Sub<Output = T>,
+        for<'a> &'a T: ops::Rem<Output = T>,
     {
         let zero = T::from(0);
         if b == &zero {
@@ -41,15 +40,14 @@ impl RSA {
     /// then x is the multiplicative inverse of b modulo a.
     /// Returns:
     ///      (1, modinv) if (a, b) are relatively prime
-    fn euclidean_algorithm<T>(a: &T, b: &T) -> (T, T) 
-        where T:
-            cmp::PartialEq + 
-            From<u32>,
-            for<'a> &'a T: ops::Div<Output = T>,
-            for<'a> &'a T: ops::Rem<Output = T>,
-            for<'a> &'a T: ops::Mul<Output = T>,
-            for<'a> &'a T: ops::Add<Output = T>,
-            for<'a> &'a T: ops::Sub<Output = T>,
+    fn euclidean_algorithm<T>(a: &T, b: &T) -> (T, T)
+    where
+        T: cmp::PartialEq + From<u32>,
+        for<'a> &'a T: ops::Div<Output = T>,
+        for<'a> &'a T: ops::Rem<Output = T>,
+        for<'a> &'a T: ops::Mul<Output = T>,
+        for<'a> &'a T: ops::Add<Output = T>,
+        for<'a> &'a T: ops::Sub<Output = T>,
     {
         let zero = T::from(0);
         if b == &zero {
@@ -91,7 +89,7 @@ impl RSA {
         Ok(RSA {
             e,
             private_key: d,
-            n
+            n,
         })
     }
 
@@ -107,7 +105,8 @@ impl RSA {
     pub fn encrypt(&self, plaintext: &BigNum) -> Result<BigNum, openssl::error::ErrorStack> {
         let mut c = BigNum::new()?;
         let mut ctx = BigNumContext::new()?;
-        c.mod_exp(plaintext, &self.e, &self.n, &mut ctx).expect("mod_exp");
+        c.mod_exp(plaintext, &self.e, &self.n, &mut ctx)
+            .expect("mod_exp");
 
         Ok(c)
     }
@@ -115,8 +114,8 @@ impl RSA {
     pub fn decrypt(&self, ciphertext: &BigNum) -> Result<BigNum, openssl::error::ErrorStack> {
         let mut m = BigNum::new()?;
         let mut ctx = BigNumContext::new()?;
-        m.mod_exp(ciphertext, &self.private_key, &self.n, &mut ctx).expect("mod_exp");
-
+        m.mod_exp(ciphertext, &self.private_key, &self.n, &mut ctx)
+            .expect("mod_exp");
         Ok(m)
     }
 
@@ -124,7 +123,10 @@ impl RSA {
         self.encrypt(&RSA::string_to_bignum(plaintext)?)
     }
 
-    pub fn decrypt_string(&self, ciphertext: &BigNum) -> Result<String, openssl::error::ErrorStack> {
+    pub fn decrypt_string(
+        &self,
+        ciphertext: &BigNum,
+    ) -> Result<String, openssl::error::ErrorStack> {
         let plaintext = self.decrypt(ciphertext)?;
         Ok(RSA::bignum_to_string(&plaintext))
     }
@@ -136,11 +138,12 @@ impl RSA {
         let mut right = n + &BigNum::from(0); // "clone"
 
         while left != right {
-            let midpoint = &(&left + &right)/&BigNum::from(2);
+            let midpoint = &(&left + &right) / &BigNum::from(2);
 
             let mut cube = BigNum::new().unwrap();
             let mut ctx = BigNumContext::new().unwrap();
-            cube.exp(&midpoint, &BigNum::from(3), &mut ctx).expect("exp");
+            cube.exp(&midpoint, &BigNum::from(3), &mut ctx)
+                .expect("exp");
 
             if &cube == n {
                 return CubeRoot::Exact(midpoint);
@@ -149,7 +152,9 @@ impl RSA {
             if &(&right - &left) == &BigNum::from(1) {
                 let mut right_cube = BigNum::new().unwrap();
                 let mut ctx = BigNumContext::new().unwrap();
-                right_cube.exp(&right, &BigNum::from(3), &mut ctx).expect("exp");
+                right_cube
+                    .exp(&right, &BigNum::from(3), &mut ctx)
+                    .expect("exp");
                 if &right_cube == n {
                     return CubeRoot::Exact(right);
                 } else {
@@ -202,19 +207,24 @@ mod tests {
         let plaintext = "i like to send the same message to alllllll of my friends, using my handrolled textbook RSA 😎";
         println!("plaintext = {:?}", &plaintext);
 
-        let snooped: Vec<(BigNum, BigNum)> = (0..3).map(|_| { 
-            let rsa = RSA::new().expect("RSA::new()");
-            let ciphertext = rsa.encrypt_string(&plaintext).expect("rsa.encrypt");
+        let snooped: Vec<(BigNum, BigNum)> = (0..3)
+            .map(|_| {
+                let rsa = RSA::new().expect("RSA::new()");
+                let ciphertext = rsa.encrypt_string(&plaintext).expect("rsa.encrypt");
 
-            (ciphertext, rsa.n)
-        }).collect();
+                (ciphertext, rsa.n)
+            }).collect();
 
-        let N: BigNum = snooped.iter().map(|(_c, n)| n)
-                               .fold(BigNum::from(1), |acc, x| &acc * x);
+        let N: BigNum = snooped
+            .iter()
+            .map(|(_c, n)| n)
+            .fold(BigNum::from(1), |acc, x| &acc * x);
 
-        let result = &snooped.iter().map(|(c, n)| {
-            c * &(&(&N/n) * &(RSA::euclidean_algorithm(n, &(&N/n)).1))
-        }).fold(BigNum::from(0), |acc, x| &acc + &x) % &N;
+        let result = &snooped
+            .iter()
+            .map(|(c, n)| c * &(&(&N / n) * &(RSA::euclidean_algorithm(n, &(&N / n)).1)))
+            .fold(BigNum::from(0), |acc, x| &acc + &x)
+            % &N;
 
         println!("result = {:?}", result);
 
@@ -238,7 +248,9 @@ mod tests {
         let mut c_prime = BigNum::new().unwrap();
         let mut ctx = BigNumContext::new().unwrap();
 
-        c_prime.mod_exp(&s, &rsa.e, &rsa.n, &mut ctx).expect("mod_exp");
+        c_prime
+            .mod_exp(&s, &rsa.e, &rsa.n, &mut ctx)
+            .expect("mod_exp");
         c_prime = &(&c_prime * &ciphertext) % &rsa.n;
 
         let p_prime = rsa.decrypt(&c_prime).expect("rsa.decrypt");
@@ -320,13 +332,10 @@ mod tests {
         let rsa = RSA::new().expect("RSA::new()");
         let plaintext = BigNum::from(1234567890);
         println!("plaintext = {:?}", &plaintext);
-
         let ciphertext = rsa.encrypt(&plaintext).expect("rsa.encrypt");
         println!("ciphertext = {:?}", &ciphertext);
-
         let decrypted = rsa.decrypt(&ciphertext).expect("rsa.decrypt");
         println!("decrypted = {:?}", &decrypted);
-
         assert_eq!(&plaintext, &decrypted);
     }
 
@@ -335,13 +344,10 @@ mod tests {
         let rsa = RSA::new().expect("RSA::new()");
         let plaintext = "this is a test of the emergency encryption system 💖";
         println!("plaintext = {:?}", &plaintext);
-
         let ciphertext = rsa.encrypt_string(&plaintext).expect("rsa.encrypt");
         println!("ciphertext = {:?}", &ciphertext);
-
         let decrypted = rsa.decrypt_string(&ciphertext).expect("rsa.decrypt");
         println!("decrypted = {:?}", &decrypted);
-
         assert_eq!(&plaintext, &decrypted);
     }
 }

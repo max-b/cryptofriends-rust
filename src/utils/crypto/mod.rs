@@ -1,5 +1,5 @@
-pub mod rsa;
 pub mod prng;
+pub mod rsa;
 
 use super::bytes::{pad_bytes, xor};
 use bigint::{BigUint, RandBigInt};
