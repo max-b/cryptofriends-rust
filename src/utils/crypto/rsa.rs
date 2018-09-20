@@ -82,9 +82,8 @@ impl RSA {
         let e = BigNum::from_u32(3)?;
         let n = &p * &q;
         let et = &(&p - &BigNum::from_u32(1)?) * &(&q - &BigNum::from_u32(1)?);
-        let mut ctx = BigNumContext::new()?;
-        let mut d = BigNum::new()?;
-        d.mod_inverse(&e, &et, &mut ctx)?;
+
+        let (_, d) = Self::euclidean_algorithm(&et, &e);
 
         Ok(RSA {
             e,
