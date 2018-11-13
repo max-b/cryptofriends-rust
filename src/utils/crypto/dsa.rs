@@ -1,8 +1,8 @@
 use bigint::{BigUint, RandBigInt};
-use num_traits::identities::Zero;
-use rand::{OsRng};
-use crypto::sha1::Sha1;
 use crypto::digest::Digest;
+use crypto::sha1::Sha1;
+use num_traits::identities::Zero;
+use rand::OsRng;
 use utils::crypto::rsa::RSA;
 
 #[derive(Debug, Clone)]
@@ -34,7 +34,6 @@ impl Default for DsaParams {
 
 impl DsaParams {
     pub fn new() -> DsaParams {
-
         let p = BigUint::parse_bytes(
             b"800000000000000089e1855218a0e7dac38136ffafa72eda7\
         859f2171e25e65eac698c1702578b07dc2a1076da241c76c6\
@@ -45,10 +44,7 @@ impl DsaParams {
             16,
         ).unwrap();
 
-        let q = BigUint::parse_bytes(
-            b"f4f47f05794b256174bba6e9b396a7707e563c5b",
-            16,
-        ).unwrap();
+        let q = BigUint::parse_bytes(b"f4f47f05794b256174bba6e9b396a7707e563c5b", 16).unwrap();
 
         let g = BigUint::parse_bytes(
             b"5958c9d3898b224b12672c0b98e06c60df923cb8bc999d119\
@@ -96,7 +92,7 @@ impl Dsa {
 
         let k = match k {
             Some(k) => k.clone(),
-            None => RandBigInt::gen_biguint_below(&mut rng, &self.params.q)
+            None => RandBigInt::gen_biguint_below(&mut rng, &self.params.q),
         };
 
         let r = self.params.g.modpow(&k, &self.params.p) % &self.params.q;
@@ -112,14 +108,14 @@ impl Dsa {
         let xr = &self.private_key * &r;
 
         let (_, invmod) = RSA::euclidean_algorithm(&self.params.q, &k);
-            
+
         let s = (invmod * (&hash_value + xr)) % &self.params.q;
 
         assert!(!s.is_zero());
-        DsaSignature { 
+        DsaSignature {
             r,
             s,
-            message_hash: hash_value
+            message_hash: hash_value,
         }
     }
 
@@ -134,7 +130,10 @@ impl Dsa {
         let u1 = (&signature.message_hash * &w) % &self.params.q;
         let u2 = (r * &w) % &self.params.q;
 
-        let v = ((&self.params.g.modpow(&u1, &self.params.p) * &self.public_key.modpow(&u2, &self.params.p)) % &self.params.p) % &self.params.q;
+        let v = ((&self.params.g.modpow(&u1, &self.params.p)
+            * &self.public_key.modpow(&u2, &self.params.p))
+            % &self.params.p)
+            % &self.params.q;
 
         &v == r
     }

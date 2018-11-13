@@ -1,26 +1,29 @@
+use bigint::BigUint;
+use crypto::digest::Digest;
+use crypto::sha1::Sha1;
+use itertools::Itertools;
+use num_traits::ops::checked::CheckedSub;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::PathBuf;
-use bigint::{BigUint};
-use utils::crypto::dsa::{DsaSignature, DsaParams};
+use utils::crypto::dsa::{DsaParams, DsaSignature};
 use utils::crypto::rsa::RSA;
-use num_traits::ops::checked::CheckedSub;
-use itertools::Itertools;
-use crypto::sha1::Sha1;
-use crypto::digest::Digest;
 
-pub fn recover_dsa_private_key_from_signing_key(params: &DsaParams, signature: &DsaSignature, k: &BigUint) -> Option<BigUint> {
+pub fn recover_dsa_private_key_from_signing_key(
+    params: &DsaParams,
+    signature: &DsaSignature,
+    k: &BigUint,
+) -> Option<BigUint> {
     let (_, inv_r) = RSA::euclidean_algorithm(&params.q, &signature.r);
     let sk = &signature.s * k;
     match sk.checked_sub(&signature.message_hash) {
         Some(t) => Some(((t % &params.q) * &inv_r) % &params.q),
-        None => None
+        None => None,
     }
 }
 
 pub fn parse_messages_and_signatures(path: PathBuf) -> Vec<DsaSignature> {
-
     let messages_file = File::open(&path).expect("Error reading messages file.");
 
     let messages_file_as_reader = BufReader::new(messages_file);
@@ -73,15 +76,15 @@ pub fn parse_messages_and_signatures(path: PathBuf) -> Vec<DsaSignature> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openssl::bn::{BigNum, BigNumContext};
     use bigint::{BigUint, RandBigInt};
-    use num_traits::{FromPrimitive, Zero, One};
-    use num_integer::Integer;
-    use utils::crypto::rsa::{CubeRoot, RSA};
-    use utils::crypto::dsa::{Dsa};
-    use crypto::sha1::Sha1;
     use crypto::digest::Digest;
-    use rand::{OsRng};
+    use crypto::sha1::Sha1;
+    use num_integer::Integer;
+    use num_traits::{FromPrimitive, One, Zero};
+    use openssl::bn::{BigNum, BigNumContext};
+    use rand::OsRng;
+    use utils::crypto::dsa::Dsa;
+    use utils::crypto::rsa::{CubeRoot, RSA};
 
     #[test]
     fn challenge_41() {
@@ -169,7 +172,8 @@ mod tests {
 
         println!("signature = {:#x?}", &signature);
 
-        let recovered_key = recover_dsa_private_key_from_signing_key(&dsa_params, &signature, &k).unwrap();
+        let recovered_key =
+            recover_dsa_private_key_from_signing_key(&dsa_params, &signature, &k).unwrap();
 
         println!("derived_key = {:#x?}", &recovered_key);
         println!("actual_key = {:#x?}", &dsa.private_key);
@@ -186,7 +190,8 @@ mod tests {
         ).unwrap();
 
         let message = "For those that envy a MC it can be hazardous to your health
-So be friendly, a matter of life and death, just like a etch-a-sketch\n".as_bytes();
+So be friendly, a matter of life and death, just like a etch-a-sketch\n"
+            .as_bytes();
 
         let mut hasher = Sha1::new();
         hasher.input(&message);
@@ -194,37 +199,56 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n".as_byte
         hasher.result(&mut hash);
 
         println!("hash = {:#x?}", &hasher.result_str());
-        assert_eq!("d2d0714f014a9784047eaeccf956520045c45265", &hasher.result_str());
+        assert_eq!(
+            "d2d0714f014a9784047eaeccf956520045c45265",
+            &hasher.result_str()
+        );
 
         let hash_value = BigUint::from_bytes_be(&hash); // sha1 outputs big endian
 
         println!("hash_value = {}", hash_value.to_str_radix(16));
 
-        assert_eq!(hash_value.to_str_radix(16), "d2d0714f014a9784047eaeccf956520045c45265");
+        assert_eq!(
+            hash_value.to_str_radix(16),
+            "d2d0714f014a9784047eaeccf956520045c45265"
+        );
 
         let signature = DsaSignature {
             message_hash: hash_value,
-            r: BigUint::parse_bytes(b"548099063082341131477253921760299949438196259240", 10).unwrap(),
-            s: BigUint::parse_bytes(b"857042759984254168557880549501802188789837994940", 10).unwrap(),
+            r: BigUint::parse_bytes(b"548099063082341131477253921760299949438196259240", 10)
+                .unwrap(),
+            s: BigUint::parse_bytes(b"857042759984254168557880549501802188789837994940", 10)
+                .unwrap(),
         };
 
         println!("signature = {:#x?}", &signature);
         println!("signature r = {}", signature.r.to_str_radix(10));
         println!("signature s = {}", signature.s.to_str_radix(10));
-        assert_eq!(signature.r.to_str_radix(10), "548099063082341131477253921760299949438196259240");
-        assert_eq!(signature.s.to_str_radix(10), "857042759984254168557880549501802188789837994940");
+        assert_eq!(
+            signature.r.to_str_radix(10),
+            "548099063082341131477253921760299949438196259240"
+        );
+        assert_eq!(
+            signature.s.to_str_radix(10),
+            "857042759984254168557880549501802188789837994940"
+        );
 
         let mut test_signing_key = BigUint::zero();
         let mut recovered_private_key = None;
-        while recovered_private_key.is_none() && test_signing_key < BigUint::from_u32(1 << 16).unwrap() {
-
-            let test_private_key = recover_dsa_private_key_from_signing_key(&dsa_params, &signature, &test_signing_key);
+        while recovered_private_key.is_none()
+            && test_signing_key < BigUint::from_u32(1 << 16).unwrap()
+        {
+            let test_private_key = recover_dsa_private_key_from_signing_key(
+                &dsa_params,
+                &signature,
+                &test_signing_key,
+            );
 
             if let Some(private_key) = test_private_key {
                 let test_dsa = Dsa {
                     params: dsa_params.clone(),
                     public_key: y.clone(),
-                    private_key: private_key.clone()
+                    private_key: private_key.clone(),
                 };
 
                 let test_signature = test_dsa.sign(&message, Some(&test_signing_key));
@@ -257,7 +281,6 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n".as_byte
 
     #[test]
     fn challenge_44() {
-
         let y = BigUint::parse_bytes(
             b"2d026f4bf30195ede3a088da85e398ef869611d0f68f07\
                 13d51c9c1a3a26c95105d915e2d8cdf26d056b86b8a7b8\
@@ -279,31 +302,31 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n".as_byte
 
         let params = DsaParams::default();
 
-        signatures.iter().combinations(2)
-            .filter(|v|
-                v[0].r == v[1].r
-            )
-            .filter(|v|
-                    ((&v[0].message_hash % &params.q) >= (&v[1].message_hash % &params.q) &&
-                     (&v[0].s % &params.q) >= (&v[1].s % &params.q)) ||
-                    ((&v[1].message_hash % &params.q) >= (&v[0].message_hash % &params.q) &&
-                     (&v[1].s % &params.q) >= (&v[0].s % &params.q))
-            )
-            .for_each(|v| {
-                let (a, b) =
-                    match (&v[0].message_hash % &params.q)
-                        .checked_sub(&(&v[1].message_hash % &params.q)) {
-
-                        Some(_) => (v[0], v[1]),
-                        None => (v[1], v[0])
-                    };
+        signatures
+            .iter()
+            .combinations(2)
+            .filter(|v| v[0].r == v[1].r)
+            .filter(|v| {
+                ((&v[0].message_hash % &params.q) >= (&v[1].message_hash % &params.q)
+                    && (&v[0].s % &params.q) >= (&v[1].s % &params.q))
+                    || ((&v[1].message_hash % &params.q) >= (&v[0].message_hash % &params.q)
+                        && (&v[1].s % &params.q) >= (&v[0].s % &params.q))
+            }).for_each(|v| {
+                let (a, b) = match (&v[0].message_hash % &params.q)
+                    .checked_sub(&(&v[1].message_hash % &params.q))
+                {
+                    Some(_) => (v[0], v[1]),
+                    None => (v[1], v[0]),
+                };
 
                 let top = (&a.message_hash % &params.q) - (&b.message_hash % &params.q);
-                let (_, inv_bottom) = RSA::euclidean_algorithm(&params.q, &((&a.s % &params.q) - (&b.s % &params.q)));
+                let (_, inv_bottom) =
+                    RSA::euclidean_algorithm(&params.q, &((&a.s % &params.q) - (&b.s % &params.q)));
 
                 let k = (top * inv_bottom) % &params.q;
 
-                let recovered_key = recover_dsa_private_key_from_signing_key(&params, &a, &k).unwrap();
+                let recovered_key =
+                    recover_dsa_private_key_from_signing_key(&params, &a, &k).unwrap();
                 found_private_key = match found_private_key {
                     None => Some(recovered_key),
                     Some(ref private_key) => {
@@ -311,7 +334,6 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n".as_byte
                         Some(recovered_key)
                     }
                 }
-
             });
 
         let found_private_key = found_private_key.unwrap();
@@ -322,7 +344,10 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n".as_byte
         let mut hash: Vec<u8> = vec![0; hasher.output_bytes()];
         hasher.result(&mut hash);
 
-        assert_eq!(hasher.result_str(), "ca8f6f7c66fa362d40760d135b763eb8527d3d52");
+        assert_eq!(
+            hasher.result_str(),
+            "ca8f6f7c66fa362d40760d135b763eb8527d3d52"
+        );
 
         let gen_public_key = Dsa::gen_public_key(&params, &found_private_key);
 
@@ -331,7 +356,6 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n".as_byte
 
     #[test]
     fn challenge_45() {
-
         let mut rng = match OsRng::new() {
             Ok(g) => g,
             Err(e) => panic!("Failed to obtain OS RNG: {}", e),
@@ -347,7 +371,7 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n".as_byte
         let dsa = Dsa {
             params,
             private_key,
-            public_key
+            public_key,
         };
 
         let message = "Very secure algorithm with insecure parameters 🤷".as_bytes();
@@ -403,13 +427,13 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n".as_byte
         let dsa = Dsa {
             params,
             private_key,
-            public_key
+            public_key,
         };
 
         let forged_signature = DsaSignature {
             r: magic_r.clone(),
             s: magic_s.clone(),
-            message_hash: hash_value.clone()
+            message_hash: hash_value.clone(),
         };
 
         assert!(dsa.verify(&forged_signature));
@@ -425,7 +449,7 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n".as_byte
         let forged_signature = DsaSignature {
             r: magic_r.clone(),
             s: magic_s.clone(),
-            message_hash: hash_value.clone()
+            message_hash: hash_value.clone(),
         };
 
         assert!(dsa.verify(&forged_signature));

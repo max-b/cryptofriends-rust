@@ -1,6 +1,6 @@
+pub mod dsa;
 pub mod prng;
 pub mod rsa;
-pub mod dsa;
 
 use super::bytes::{pad_bytes, xor};
 use bigint::{BigUint, RandBigInt};
