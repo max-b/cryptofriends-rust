@@ -100,7 +100,8 @@ impl Dsa {
         };
 
         let r = self.params.g.modpow(&k, &self.params.p) % &self.params.q;
-        assert!(!r.is_zero());
+        // Allow r to be zero for challenge 45 param tampering
+        // assert!(!r.is_zero());
 
         let mut hasher = Sha1::new();
         hasher.input(&message);

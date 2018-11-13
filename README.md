@@ -66,7 +66,7 @@ My attempts at working through the [cryptopals](https://cryptopals.com) challeng
 - [X] Challenge 42: Bleichenbacher's e=3 RSA Attack
 - [X] Challenge 43: DSA key recovery from nonce
 - [X] Challenge 44: DSA nonce recovery from repeated nonce
-- [ ] Challenge 45: DSA parameter tampering
+- [X] Challenge 45: DSA parameter tampering
 - [ ] Challenge 46: RSA parity oracle
 - [ ] Challenge 47: Bleichenbacher's PKCS 1.5 Padding Oracle (Simple Case)
 - [ ] Challenge 48: Bleichenbacher's PKCS 1.5 Padding Oracle (Complete Case)
