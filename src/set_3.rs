@@ -34,7 +34,7 @@ pub fn challenge_17_encrypt(string_num: Option<usize>) -> (Vec<u8>, Vec<u8>, Vec
         None => rng.gen_range(0, strings.len()) as usize,
     };
 
-    let chosen_string: &String = strings.get(num).unwrap();
+    let chosen_string: &String = &strings[num];
     let plaintext = base64_to_bytes(chosen_string);
 
     let iv: Vec<u8> = vec![0; 16];
@@ -50,11 +50,7 @@ pub fn challenge_17_padding_oracle(ciphertext: &[u8], iv: &[u8]) -> bool {
 
     let decrypted_result = decrypted.unwrap();
 
-    if let Ok(_) = decrypted_result {
-        true
-    } else {
-        false
-    }
+    decrypted_result.is_ok()
 }
 
 pub fn exploit_padding_oracle(
@@ -157,8 +153,7 @@ pub fn reused_nonce_encrypt_strings(filename: &str) -> (Vec<Vec<u8>>, Vec<u8>, V
             .lines()
             .map(|l| {
                 let string = base64_to_bytes(&l.unwrap()[..]);
-                let result = aes_ctr(&k[..], &string[..], &nonce[..]);
-                result
+                aes_ctr(&k[..], &string[..], &nonce[..])
             }).collect();
         (strings, nonce, k.clone())
     })
@@ -197,8 +192,7 @@ pub fn break_repeated_nonce_statistically(ciphertext_list: &[Vec<u8>]) -> Vec<u8
 
     let flattened_strings: Vec<u8> = result.into_iter().flat_map(|s| s).collect();
 
-    let decrypted_buf = repeating_key_xor(&flattened_strings[..], &key_vector[..]);
-    decrypted_buf
+    repeating_key_xor(&flattened_strings[..], &key_vector[..])
 }
 
 pub fn gen_rand_with_time() -> (u32, u32, u32) {
@@ -226,7 +220,7 @@ pub fn untemper_right(x: u32, l: u32, w: u32) -> u32 {
         let n = w - l - i;
         let y1 = y >> (w - i) & 1;
         let x1 = x >> n & 1;
-        y = y | ((x1 ^ y1) << n);
+        y |= (x1 ^ y1) << n;
     }
     y
 }
@@ -241,7 +235,7 @@ pub fn untemper_left(x: u32, l: u32, w: u32, c: u32) -> u32 {
         let x1 = x >> n & 1;
         let c1 = c >> n & 1;
 
-        y = y | ((x1 ^ (y1 & c1)) << n);
+        y |= (x1 ^ (y1 & c1)) << n;
     }
     y
 }
@@ -279,7 +273,7 @@ mod tests {
         let base64_challenge_ciphertext_string =
             "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==";
         let challenge_ciphertext = base64_to_bytes(&base64_challenge_ciphertext_string);
-        let key = "YELLOW SUBMARINE".as_bytes();
+        let key = b"YELLOW SUBMARINE";
         let nonce: Vec<u8> = vec![0; 8];
 
         let result = aes_ctr(&key[..], &challenge_ciphertext[..], &nonce[..]);
@@ -425,7 +419,7 @@ mod tests {
             let test_ciphertext = prng_cipher::<MT19937>(test_key, &test_plaintext[..]);
 
             assert_eq!(test_ciphertext.len(), ciphertext.len());
-            if &test_ciphertext[ciphertext.len() - 14..] == &ciphertext[ciphertext.len() - 14..] {
+            if test_ciphertext[ciphertext.len() - 14..] == ciphertext[ciphertext.len() - 14..] {
                 found_key = Some(test_key);
             }
         }

@@ -81,43 +81,38 @@ pub fn word_scorer_bytes(buf: &[u8]) -> Result<(String, f64, u8), Error> {
     for i in 0..255 {
         let result = &single_xor(&buf, i)[..];
 
-        match str::from_utf8(&result) {
-            Ok(string) => {
-                if string.is_ascii() {
-                    let score = get_chi_squared(result);
+        if let Ok(string) = str::from_utf8(&result) {
+            if string.is_ascii() {
+                let score = get_chi_squared(result);
 
-                    if let Some(best) = best_score {
-                        if score < best {
-                            best_score = Some(score);
-                            best_key = i;
-                        }
-                    } else {
+                if let Some(best) = best_score {
+                    if score < best {
                         best_score = Some(score);
                         best_key = i;
                     }
+                } else {
+                    best_score = Some(score);
+                    best_key = i;
                 }
             }
-            Err(_) => {}
         }
     }
 
     match best_score {
-        None => {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                "Unable to find any valid xored byte buffer",
-            ))
-        }
+        None => Err(Error::new(
+            ErrorKind::InvalidData,
+            "Unable to find any valid xored byte buffer",
+        )),
         Some(score) => {
             let plaintext_bytes = single_xor(&buf, best_key);
             let plaintext_char_buffer: Vec<char> =
                 plaintext_bytes.iter().map(|&x| x as char).collect();
 
-            return Ok((
+            Ok((
                 format!("{}", plaintext_char_buffer.iter().format("")),
                 score,
                 best_key,
-            ));
+            ))
         }
     }
 }
@@ -127,7 +122,7 @@ pub fn word_scorer_string(hex: &str) -> Result<(String, f64, u8), Error> {
     word_scorer_bytes(&buf[..])
 }
 
-pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
+pub fn find_keysize(ciphertext: &[u8]) -> Result<usize, Error> {
     let mut goal_keysize = None;
     let mut goal_dist = f64::INFINITY;
 
@@ -149,7 +144,7 @@ pub fn find_keysize(ciphertext: &Vec<u8>) -> Result<usize, Error> {
             as f64
             / (6.0 * keysize as f64);
 
-        if let Some(_) = goal_keysize {
+        if goal_keysize.is_some() {
             if average_dist < goal_dist {
                 goal_dist = average_dist;
                 goal_keysize = Some(keysize);
@@ -174,8 +169,8 @@ pub fn admin_string_encrypt_challenge(
     quoted_input = str::replace(&quoted_input[..], "=", "\"=\"");
 
     let input_bytes = quoted_input.as_bytes();
-    let prepend_bytes = "comment1=cooking%20MCs;userdata=".as_bytes();
-    let append_bytes = ";comment2=%20like%20a%20pound%20of%20bacon".as_bytes();
+    let prepend_bytes = b"comment1=cooking%20MCs;userdata=";
+    let append_bytes = b";comment2=%20like%20a%20pound%20of%20bacon";
 
     let mut plaintext = Vec::new();
 
@@ -199,11 +194,7 @@ pub fn admin_string_decrypt_and_check(
 
     let plaintext_string = String::from_utf8_lossy(&plaintext);
 
-    if let Some(_) = plaintext_string.find(";admin=true;") {
-        true
-    } else {
-        false
-    }
+    plaintext_string.find(";admin=true;").is_some()
 }
 
 #[cfg(test)]

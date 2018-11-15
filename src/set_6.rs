@@ -23,7 +23,7 @@ pub fn recover_dsa_private_key_from_signing_key(
     }
 }
 
-pub fn parse_messages_and_signatures(path: PathBuf) -> Vec<DsaSignature> {
+pub fn parse_messages_and_signatures(path: &PathBuf) -> Vec<DsaSignature> {
     let messages_file = File::open(&path).expect("Error reading messages file.");
 
     let messages_file_as_reader = BufReader::new(messages_file);
@@ -79,7 +79,6 @@ mod tests {
     use bigint::{BigUint, RandBigInt};
     use crypto::digest::Digest;
     use crypto::sha1::Sha1;
-    use num_integer::Integer;
     use num_traits::{FromPrimitive, One, Zero};
     use openssl::bn::{BigNum, BigNumContext};
     use rand::OsRng;
@@ -117,14 +116,14 @@ mod tests {
     #[test]
     fn challenge_42() {
         let mut forged_plaintext = vec![0x00, 0x01, 0xff, 0x00];
-        forged_plaintext.extend_from_slice(&"hello".as_bytes());
+        forged_plaintext.extend_from_slice(b"hello");
         println!("forged plaintext = {:?}", &forged_plaintext);
         let mut num_pad = 20;
 
         loop {
             let mut test_plaintext = Vec::new();
             test_plaintext.extend_from_slice(&forged_plaintext);
-            let mut right_pad = vec![0x00; num_pad];
+            let right_pad = vec![0x00; num_pad];
             test_plaintext.extend_from_slice(&right_pad);
             let cuberoot = RSA::cube_root(&BigNum::from_slice(&test_plaintext).unwrap());
 
@@ -137,14 +136,15 @@ mod tests {
 
             let mut cube = BigNum::new().unwrap();
             let mut ctx = BigNumContext::new().unwrap();
-            cube.exp(&test_ciphertext, &BigNum::from(3), &mut ctx);
+            cube.exp(&test_ciphertext, &BigNum::from(3), &mut ctx)
+                .expect("cube exponentiation failed");
 
             let cube_bytes = cube.to_vec();
 
             println!("forged plaintext = {:?}", &forged_plaintext);
             println!("resulting plaintext = {:?}", &cube_bytes);
 
-            if &cube_bytes[0..8] == &forged_plaintext[1..9] {
+            if cube_bytes[0..8] == forged_plaintext[1..9] {
                 println!("found match");
                 break;
             }
@@ -189,12 +189,11 @@ mod tests {
             16,
         ).unwrap();
 
-        let message = "For those that envy a MC it can be hazardous to your health
-So be friendly, a matter of life and death, just like a etch-a-sketch\n"
-            .as_bytes();
+        let message = b"For those that envy a MC it can be hazardous to your health
+So be friendly, a matter of life and death, just like a etch-a-sketch\n";
 
         let mut hasher = Sha1::new();
-        hasher.input(&message);
+        hasher.input(message);
         let mut hash: Vec<u8> = vec![0; hasher.output_bytes()];
         hasher.result(&mut hash);
 
@@ -251,7 +250,7 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n"
                     private_key: private_key.clone(),
                 };
 
-                let test_signature = test_dsa.sign(&message, Some(&test_signing_key));
+                let test_signature = test_dsa.sign(message, Some(&test_signing_key));
 
                 if test_signature == signature {
                     let gen_public_key = Dsa::gen_public_key(&dsa_params, &private_key);
@@ -262,7 +261,7 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n"
                 }
             }
 
-            test_signing_key = test_signing_key + BigUint::one();
+            test_signing_key += BigUint::one();
             // Output progress
             if (&test_signing_key % &BigUint::from(500 as u32)).is_zero() {
                 println!("{}", &test_signing_key);
@@ -296,7 +295,7 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n"
         messages_path.push("set_6");
         messages_path.push("44.txt");
 
-        let signatures = parse_messages_and_signatures(messages_path);
+        let signatures = parse_messages_and_signatures(&messages_path);
 
         let mut found_private_key = None;
 

@@ -32,9 +32,10 @@ pub trait Entity {
 
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.am_honest() {
-            true => write!(f, "{}: HonestEntity", self.get_name()),
-            false => write!(f, "{}: MiTMEntity", self.get_name()),
+        if self.am_honest() {
+            write!(f, "{}: HonestEntity", self.get_name())
+        } else {
+            write!(f, "{}: MiTMEntity", self.get_name())
         }
     }
 }

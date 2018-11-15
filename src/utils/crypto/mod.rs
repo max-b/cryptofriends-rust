@@ -167,7 +167,6 @@ pub fn cbc_encrypt(key: &[u8], plaintext: &[u8], iv: &[u8]) -> Vec<u8> {
 
 pub fn aes_ctr(key: &[u8], input: &[u8], nonce: &[u8]) -> Vec<u8> {
     let block_size = key.len();
-    let mut count: u64 = 0;
     let encryptor = aessafe::AesSafe128Encryptor::new(&key);
 
     let mut output = Vec::new();
@@ -175,18 +174,17 @@ pub fn aes_ctr(key: &[u8], input: &[u8], nonce: &[u8]) -> Vec<u8> {
     let input_blocks = input.chunks(block_size);
 
     let mut keystream = vec![0; block_size];
-    for block in input_blocks {
+    for (count, block) in input_blocks.enumerate() {
         let mut nonce_count = Vec::new();
         nonce_count.extend_from_slice(&nonce[..]);
         nonce_count
-            .write_u64::<LittleEndian>(count)
+            .write_u64::<LittleEndian>(count as u64)
             .expect("Error writing count as u64 -> little endian bytes.");
 
         encryptor.encrypt_block(&nonce_count[..], &mut keystream[..]);
 
         let xor_result = xor(&keystream[0..block.len()], &block[..]);
         output.extend_from_slice(&xor_result[..]);
-        count += 1;
     }
     output
 }
@@ -255,12 +253,10 @@ pub fn edit_aes_ctr(
                 } else {
                     (newtext_start + plaintext_len) - block_offset
                 }
+            } else if newtext_start + plaintext_len > newtext.len() {
+                newtext.len()
             } else {
-                if newtext_start + plaintext_len > newtext.len() {
-                    newtext.len()
-                } else {
-                    newtext_start + plaintext_len
-                }
+                newtext_start + plaintext_len
             }
         };
 
@@ -462,15 +458,14 @@ mod tests {
     #[test]
     fn aes_ctr_seek_edit() {
         let key = generate_random_aes_key();
-        let initial_plaintext = "Say -- Play that funky music Say, go white boy, go white boy go
+        let initial_plaintext = b"Say -- Play that funky music Say, go white boy, go white boy go
         play that funky music Go white boy, go white boy, go
-        Lay down and boogie and play that funky music till you die."
-            .as_bytes();
+        Lay down and boogie and play that funky music till you die.";
 
         let nonce: Vec<u8> = vec![0; 8];
         let initial_ciphertext = aes_ctr(&key[..], &initial_plaintext[..], &nonce[..]);
 
-        let text_to_insert = "HIHIHIHIHIHIHIHI".as_bytes();
+        let text_to_insert = b"HIHIHIHIHIHIHIHI";
         let offset = 101;
         let new_ciphertext = edit_aes_ctr(
             &initial_ciphertext[..],
@@ -487,7 +482,7 @@ mod tests {
             &text_to_insert[..]
         );
 
-        let text_to_insert = "HIHI".as_bytes();
+        let text_to_insert = b"HIHI";
         let offset = new_ciphertext.len() - text_to_insert.len() - 1;
         let new_ciphertext = edit_aes_ctr(
             &initial_ciphertext[..],
@@ -504,7 +499,7 @@ mod tests {
             &text_to_insert[..]
         );
 
-        let text_to_insert = "A".as_bytes();
+        let text_to_insert = b"A";
         let offset = new_ciphertext.len() - text_to_insert.len() - 1;
         let new_ciphertext = edit_aes_ctr(
             &initial_ciphertext[..],
@@ -521,7 +516,7 @@ mod tests {
             &text_to_insert[..]
         );
 
-        let text_to_insert = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".as_bytes();
+        let text_to_insert = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let offset = new_ciphertext.len() - text_to_insert.len() - 1;
         let new_ciphertext = edit_aes_ctr(
             &initial_ciphertext[..],
@@ -541,8 +536,8 @@ mod tests {
 
     #[test]
     fn pad_test() {
-        let padded = md_pad("123testingtesting\n".as_bytes());
-        let unpadded = "123testingtesting\n".as_bytes();
+        let padded = md_pad(b"123testingtesting\n");
+        let unpadded = b"123testingtesting\n";
         let null_bytes = [];
         let padded_sha1 = sha1_unpadded(&padded[..]);
         let unpadded_sha1 = sha1(&null_bytes, &unpadded[..]);

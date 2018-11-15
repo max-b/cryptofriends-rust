@@ -25,8 +25,8 @@ pub fn hex_to_bytes(hex: &str) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::with_capacity(hex.len() / 2);
     for i in 0..(hex.len() / 2) {
         let hex_string = &hex[(i * 2)..(i * 2) + 2];
-        let res =
-            u8::from_str_radix(hex_string, 16).expect(&format!("Problem with hex {}", hex_string));
+        let res = u8::from_str_radix(hex_string, 16)
+            .unwrap_or_else(|_| panic!("Problem with hex {}", hex_string));
         bytes.push(res);
     }
 

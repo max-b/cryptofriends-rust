@@ -1,3 +1,14 @@
+#![cfg_attr(feature = "cargo-clippy", feature(tool_lints))]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    allow(
+        clippy::needless_pass_by_value,
+        clippy::type_complexity,
+        clippy::many_single_char_names,
+        clippy::unreadable_literal
+    )
+)]
+
 extern crate base64;
 extern crate byteorder;
 extern crate crypto;

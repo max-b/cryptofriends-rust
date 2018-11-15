@@ -27,7 +27,7 @@ pub fn aes_cbc() -> String {
 
     let base64_decoded_ciphertext = read_base64_file_as_bytes(&ciphertext_path);
 
-    let key = "YELLOW SUBMARINE".as_bytes();
+    let key = b"YELLOW SUBMARINE";
     let iv = [0u8; 16];
 
     let decrypted =
@@ -112,10 +112,10 @@ pub fn challenge_14_encryption_oracle(input_plaintext: &[u8]) -> Vec<u8> {
 pub fn key_value_parser(s: &str) -> Vec<(String, String)> {
     let input = s.to_string();
     let mut result: Vec<(String, String)> = Vec::new();
-    let pairs = input.split("&");
+    let pairs = input.split('&');
 
     for pair in pairs {
-        let mut key_value = pair.split("=");
+        let mut key_value = pair.split('=');
         let key = key_value.next().expect("no key found");
         let value = key_value.next().expect("no value found");
 
@@ -161,7 +161,7 @@ pub fn find_block_size(oracle: &Fn(&[u8]) -> Vec<u8>) -> usize {
         let oracle_output = oracle(&test_plaintext[..]);
 
         for j in 0..oracle_output.len() - ((i + 1) * 2) {
-            if &oracle_output[j..j + i + 1] == &oracle_output[j + i + 1..j + ((i + 1) * 2)] {
+            if oracle_output[j..=j + i] == oracle_output[j + i + 1..j + ((i + 1) * 2)] {
                 block_size = i + 1;
                 break 'outer;
             }
@@ -214,7 +214,7 @@ mod tests {
 
         let base64_decoded_ciphertext = read_base64_file_as_bytes(&ciphertext_path);
 
-        let key = "YELLOW SUBMARINE".as_bytes();
+        let key = b"YELLOW SUBMARINE";
         let iv: Vec<u8> = vec![0; 16];
 
         let decrypted = cbc_decrypt(key, &base64_decoded_ciphertext[..], &iv[..])
@@ -233,7 +233,7 @@ mod tests {
 
         let plaintext_bytes = read_file_as_bytes(&plaintext_path);
 
-        let key = "YELLOW SUBMARINE".as_bytes();
+        let key = b"YELLOW SUBMARINE";
         let iv: Vec<u8> = vec![0; 16];
 
         let encrypted = cbc_encrypt(key, &plaintext_bytes[..], &iv[..]);
@@ -297,8 +297,8 @@ mod tests {
                     test_plaintext[len - 1] = byte;
                     let oracle_output_test = consistent_key_encryption_oracle(&test_plaintext[..]);
 
-                    if &oracle_output_1[chunk_index..chunk_index + block_size]
-                        == &oracle_output_test[chunk_index..chunk_index + block_size]
+                    if oracle_output_1[chunk_index..chunk_index + block_size]
+                        == oracle_output_test[chunk_index..chunk_index + block_size]
                     {
                         discovered_block.push(byte);
                         break;
@@ -344,7 +344,7 @@ mod tests {
         let junk1: Vec<u8> = vec![b'A'; 10];
         let junk2: Vec<u8> = vec![b'A'; 4];
 
-        let mut admin_with_padding = "admin".as_bytes().to_vec();
+        let mut admin_with_padding = b"admin".to_vec();
         let padding = vec![11; 11];
 
         admin_with_padding.extend_from_slice(&padding[..]);
@@ -435,8 +435,8 @@ mod tests {
                     test_plaintext[len - 1] = byte;
                     let oracle_output_test = challenge_14_encryption_oracle(&test_plaintext[..]);
 
-                    if &oracle_output_1[chunk_index..chunk_index + block_size]
-                        == &oracle_output_test[chunk_index..chunk_index + block_size]
+                    if oracle_output_1[chunk_index..chunk_index + block_size]
+                        == oracle_output_test[chunk_index..chunk_index + block_size]
                     {
                         discovered_block.push(byte);
                         break;
@@ -456,19 +456,19 @@ mod tests {
 
     #[test]
     fn challenge_15() {
-        let valid = "ICE ICE BABY\x04\x04\x04\x04".as_bytes();
+        let valid = b"ICE ICE BABY\x04\x04\x04\x04";
         assert_eq!(strip_pkcs_padding(valid), Ok(Vec::from("ICE ICE BABY")));
 
-        let valid2 = "ICE \x04\x04\x04\x04".as_bytes();
+        let valid2 = b"ICE \x04\x04\x04\x04";
         assert_eq!(strip_pkcs_padding(valid2), Ok(Vec::from("ICE ")));
 
-        let invalid1 = "ICE ICE BABY\x05\x05\x05\x05".as_bytes();
+        let invalid1 = b"ICE ICE BABY\x05\x05\x05\x05";
         assert_eq!(strip_pkcs_padding(invalid1), Err("Invalid pkcs"));
 
-        let invalid2 = "ICE ICE BABY\x01\x02\x03\x04".as_bytes();
+        let invalid2 = b"ICE ICE BABY\x01\x02\x03\x04";
         assert_eq!(strip_pkcs_padding(invalid2), Err("Invalid pkcs"));
 
-        let invalid3 = "RANDOM NON ICE STRING WITHOUT PADDING".as_bytes();
+        let invalid3 = b"RANDOM NON ICE STRING WITHOUT PADDING";
         assert_eq!(strip_pkcs_padding(invalid3), Err("Invalid pkcs"));
     }
 

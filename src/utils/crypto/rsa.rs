@@ -58,7 +58,7 @@ impl RSA {
         let mut ab = (b + &zero, r);
         let mut numers = (T::from(1), q);
         let mut counter = T::from(0);
-        while &ab.1 != &zero {
+        while ab.1 != zero {
             let (q, r) = Self::division_algorithm(&ab.0, &ab.1);
             let tmp = &ab.1 + &zero;
             ab.0 = tmp;
@@ -148,7 +148,7 @@ impl RSA {
                 return CubeRoot::Exact(midpoint);
             }
 
-            if &(&right - &left) == &BigNum::from(1) {
+            if (&right - &left) == BigNum::from(1) {
                 let mut right_cube = BigNum::new().unwrap();
                 let mut ctx = BigNumContext::new().unwrap();
                 right_cube
@@ -156,16 +156,14 @@ impl RSA {
                     .expect("exp");
                 if &right_cube == n {
                     return CubeRoot::Exact(right);
+                } else if (n - &cube) < (&right_cube - n) {
+                    return CubeRoot::Nearest(left);
                 } else {
-                    if (n - &cube) < (&right_cube - n) {
-                        return CubeRoot::Nearest(left);
-                    } else {
-                        return CubeRoot::Nearest(right);
-                    }
+                    return CubeRoot::Nearest(right);
                 }
             }
 
-            if &cube > n {
+            if cube > *n {
                 right = midpoint;
             } else {
                 left = midpoint;

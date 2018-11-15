@@ -5,7 +5,7 @@ use num_traits::identities::Zero;
 use rand::OsRng;
 use utils::crypto::rsa::RSA;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Dsa {
     pub params: DsaParams,
     pub private_key: BigUint,
@@ -121,7 +121,7 @@ impl Dsa {
 
     pub fn verify(&self, signature: &DsaSignature) -> bool {
         let (r, s) = (&signature.r, &signature.s);
-        if r >= &self.params.q || s >= &self.params.q {
+        if *r >= self.params.q || *s >= self.params.q {
             return false;
         }
 

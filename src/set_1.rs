@@ -24,19 +24,16 @@ pub fn detect_single_char_xor() -> String {
     let mut best_decoded = String::from("");
 
     for line in strings_file_as_reader.lines() {
-        match word_scorer_string(&line.expect("error reading line")) {
-            Ok((decoded, score, _)) => {
-                if let Some(best) = best_score {
-                    if score < best {
-                        best_score = Some(score);
-                        best_decoded = decoded;
-                    }
-                } else {
+        if let Ok((decoded, score, _)) = word_scorer_string(&line.expect("error reading line")) {
+            if let Some(best) = best_score {
+                if score < best {
                     best_score = Some(score);
                     best_decoded = decoded;
                 }
+            } else {
+                best_score = Some(score);
+                best_decoded = decoded;
             }
-            Err(_) => {}
         }
     }
 
@@ -60,8 +57,8 @@ pub fn challenge_6() -> String {
     }
 }
 
-pub fn break_repeating_xor(ciphertext: &Vec<u8>) -> Result<String, Error> {
-    let keysize = find_keysize(&ciphertext).unwrap();
+pub fn break_repeating_xor(ciphertext: &[u8]) -> Result<String, Error> {
+    let keysize = find_keysize(ciphertext).unwrap();
 
     let mut transposed: Vec<Vec<u8>> = vec![vec![]; keysize];
     for slice in ciphertext.chunks(keysize) {
@@ -102,7 +99,7 @@ pub fn aes_ecb() -> String {
 
     let base64_decoded_ciphertext = read_base64_file_as_bytes(&ciphertext_path);
 
-    let key = "YELLOW SUBMARINE".as_bytes();
+    let key = b"YELLOW SUBMARINE";
 
     let decrypted = ecb_decrypt(key, &base64_decoded_ciphertext);
 
@@ -313,7 +310,7 @@ Play that funky music",
 
         let base64_decoded_ciphertext: Vec<u8> = read_base64_file_as_bytes(&ciphertext_path);
 
-        let key = "YELLOW SUBMARINE".as_bytes();
+        let key = b"YELLOW SUBMARINE";
 
         let decrypted: Vec<u8> = ecb_decrypt(key, &base64_decoded_ciphertext);
 

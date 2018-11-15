@@ -33,7 +33,7 @@ pub fn message_loop(
 mod tests {
     use super::*;
     use bigint::BigUint;
-    use openssl::bn::{BigNum, BigNumContext};
+    use openssl::bn::BigNum;
     use std::collections::HashMap;
     use utils::crypto::rsa::{CubeRoot, RSA};
     use utils::crypto::DHKeyPair;
@@ -119,11 +119,9 @@ mod tests {
 
         message_loop(&map, a.clone(), b.clone(), init_message);
 
-        a.borrow_mut()
-            .send_encrypted_message("hi from a".as_bytes());
+        a.borrow_mut().send_encrypted_message(b"hi from a");
 
-        b.borrow_mut()
-            .send_encrypted_message("hi from b".as_bytes());
+        b.borrow_mut().send_encrypted_message(b"hi from b");
 
         println!("\n== Now with a MiTM ==");
         let a = HonestEntity::new(0, String::from("A"));
@@ -146,11 +144,9 @@ mod tests {
 
         message_loop(&map, a.clone(), m.clone(), init_message);
 
-        a.borrow_mut()
-            .send_encrypted_message("hi from a".as_bytes());
+        a.borrow_mut().send_encrypted_message(b"hi from a");
 
-        b.borrow_mut()
-            .send_encrypted_message("hi from b".as_bytes());
+        b.borrow_mut().send_encrypted_message(b"hi from b");
     }
 
     #[test]
@@ -182,11 +178,9 @@ mod tests {
 
         message_loop(&map, a.clone(), b.clone(), init_message);
 
-        a.borrow_mut()
-            .send_encrypted_message("hi from a".as_bytes());
+        a.borrow_mut().send_encrypted_message(b"hi from a");
 
-        b.borrow_mut()
-            .send_encrypted_message("hi from b".as_bytes());
+        b.borrow_mut().send_encrypted_message(b"hi from b");
 
         println!("\n== Now with a MiTM who sets g to 1 ==");
         let a = HonestEntity::new(0, String::from("A"));
@@ -211,8 +205,7 @@ mod tests {
 
         message_loop(&map, a.clone(), m.clone(), init_message);
 
-        a.borrow_mut()
-            .send_encrypted_message("hi from a".as_bytes());
+        a.borrow_mut().send_encrypted_message(b"hi from a");
 
         println!("\n== Now with a MiTM who sets g to p ==");
         let a = HonestEntity::new(0, String::from("A"));
@@ -231,8 +224,7 @@ mod tests {
 
         message_loop(&map, a.clone(), m.clone(), init_message);
 
-        a.borrow_mut()
-            .send_encrypted_message("hi from a".as_bytes());
+        a.borrow_mut().send_encrypted_message(b"hi from a");
 
         println!("\n== Now with a MiTM who sets g to p-1 ==");
         let a = HonestEntity::new(0, String::from("A"));
@@ -257,8 +249,7 @@ mod tests {
 
         message_loop(&map, a.clone(), m.clone(), init_message);
 
-        a.borrow_mut()
-            .send_encrypted_message("hi from a".as_bytes());
+        a.borrow_mut().send_encrypted_message(b"hi from a");
     }
 
     #[test]
@@ -286,6 +277,7 @@ mod tests {
                 (ciphertext, rsa.n)
             }).collect();
 
+        #[allow(non_snake_case)]
         let N: BigNum = snooped
             .iter()
             .map(|(_c, n)| n)

@@ -28,7 +28,7 @@ pub fn challenge_25_encrypt() -> (Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
 
     let base64_decoded_ciphertext = read_base64_file_as_bytes(&ciphertext_path);
 
-    let key = "YELLOW SUBMARINE".as_bytes();
+    let key = b"YELLOW SUBMARINE";
 
     let plaintext = ecb_decrypt(key, &base64_decoded_ciphertext[..]);
 
@@ -69,8 +69,7 @@ pub fn generate_mac_secret() -> Vec<u8> {
 fn check_signature(valid: &[u8], test: &[u8]) -> bool {
     let sleep_time = Duration::new(0, 5000000);
 
-    for i in 0..valid.len() {
-        let valid_byte = valid.get(i).unwrap();
+    for (i, valid_byte) in valid.iter().enumerate() {
         let test_byte = test.get(i);
         match test_byte {
             None => return false,
@@ -105,7 +104,7 @@ fn handle_request(req: Request<Body>) -> Response<Body> {
     }
 
     let hasher = Sha1::new();
-    let mut hmac = Hmac::new(hasher, "password".as_bytes());
+    let mut hmac = Hmac::new(hasher, b"password");
     hmac.input(file.unwrap().as_bytes());
     let result = hmac.result();
     let code = result.code();
@@ -145,10 +144,7 @@ pub fn start_web_server() {
 thread_local!(static CONSISTENT_MAC_SECRET: Vec<u8> = generate_mac_secret());
 
 pub fn secret_prefix_mac(message: &[u8]) -> Vec<u8> {
-    CONSISTENT_MAC_SECRET.with(|s| {
-        let digest = sha1(&s, &message);
-        digest
-    })
+    CONSISTENT_MAC_SECRET.with(|s| sha1(&s, &message))
 }
 
 pub fn validate_mac(message: &[u8], mac: &[u8]) -> bool {
@@ -174,12 +170,14 @@ mod tests {
             for byte in 0..255 {
                 let new_ciphertext =
                     edit_aes_ctr(&ciphertext[..], &actual_key[..], &nonce[..], i, &[byte]);
-                if &new_ciphertext[..] == &ciphertext[..] {
+                if new_ciphertext == ciphertext {
                     found_byte = Some(byte);
                     break;
                 }
             }
-            let byte = found_byte.expect(&format!("Error finding byte at position {:?}", i));
+            let byte =
+                found_byte.unwrap_or_else(|| panic!("Error finding byte at position {:?}", i));
+
             discovered_plaintext.push(byte);
         }
 
@@ -217,41 +215,40 @@ mod tests {
 
     #[test]
     fn challenge_28() {
-        let hashed = sha1("".as_bytes(), "hello world".as_bytes());
+        let hashed = sha1(b"", b"hello world");
         let hashed_str = bytes_to_hex(&hashed);
         assert_eq!(hashed_str, "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed");
 
-        let hashed = sha1("key".as_bytes(), "message".as_bytes());
+        let hashed = sha1(b"key", b"message");
         let hashed_str = bytes_to_hex(&hashed);
         assert_eq!(hashed_str, "7d89ca5f9535d3bd925ca99f484ae4413a14fe2d");
 
-        let hashed = sha1("notthekey".as_bytes(), "message".as_bytes());
+        let hashed = sha1(b"notthekey", b"message");
         let hashed_str = bytes_to_hex(&hashed);
         assert_ne!(hashed_str, "7d89ca5f9535d3bd925ca99f484ae4413a14fe2d");
     }
 
     #[test]
     fn challenge_29() {
-        let hashed_message = secret_prefix_mac("testing".as_bytes());
+        let hashed_message = secret_prefix_mac(b"testing");
 
-        let hashed_message2 = secret_prefix_mac("testing".as_bytes());
+        let hashed_message2 = secret_prefix_mac(b"testing");
 
         assert_eq!(hashed_message, hashed_message2);
 
         let original_string =
-            "comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon"
-                .as_bytes();
+            b"comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon";
 
-        let original_hash = secret_prefix_mac(&original_string);
+        let original_hash = secret_prefix_mac(&original_string[..]);
 
         let (mut a, mut b, mut c, mut d, mut e) = (0u32, 0u32, 0u32, 0u32, 0u32);
 
         for i in 0..4 {
-            a = a | ((original_hash[i] as u32) << (8 * i));
-            b = b | ((original_hash[i + 4] as u32) << (8 * i));
-            c = c | ((original_hash[i + 8] as u32) << (8 * i));
-            d = d | ((original_hash[i + 12] as u32) << (8 * i));
-            e = e | ((original_hash[i + 16] as u32) << (8 * i));
+            a |= u32::from(original_hash[i]) << (8 * i);
+            b |= u32::from(original_hash[i + 4]) << (8 * i);
+            c |= u32::from(original_hash[i + 8]) << (8 * i);
+            d |= u32::from(original_hash[i + 12]) << (8 * i);
+            e |= u32::from(original_hash[i + 16]) << (8 * i);
         }
 
         let mut found_signature = None;
@@ -261,18 +258,18 @@ mod tests {
             test_password.push('A');
             let mut check_padding_bytes = Vec::new();
             check_padding_bytes.extend_from_slice(test_password.as_bytes());
-            check_padding_bytes.extend_from_slice(&original_string);
+            check_padding_bytes.extend_from_slice(&original_string[..]);
 
             let padding = md_padding(&check_padding_bytes);
 
             let mut forged_bytes = Vec::new();
-            forged_bytes.extend_from_slice(&original_string);
+            forged_bytes.extend_from_slice(&original_string[..]);
             forged_bytes.extend_from_slice(&padding);
-            forged_bytes.extend_from_slice(";admin=true".as_bytes());
+            forged_bytes.extend_from_slice(b";admin=true");
 
             let forged_bytes_len = forged_bytes.len();
             let mut new_message = Vec::new();
-            new_message.extend_from_slice(";admin=true".as_bytes());
+            new_message.extend_from_slice(b";admin=true");
             let new_message_padding =
                 md_padding_with_length(&forged_bytes, forged_bytes_len + test_password.len());
             new_message.extend_from_slice(&new_message_padding);
