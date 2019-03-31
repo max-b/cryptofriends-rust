@@ -76,9 +76,13 @@ impl RSA {
     }
 
     pub fn new() -> Result<RSA, openssl::error::ErrorStack> {
+        Self::new_with_size(1024)
+    }
+
+    pub fn new_with_size(size: i32) -> Result<RSA, openssl::error::ErrorStack> {
         let (mut p, mut q) = (BigNum::new()?, BigNum::new()?);
-        p.generate_prime(1024, false, None, None)?;
-        q.generate_prime(1024, false, None, None)?;
+        p.generate_prime(size, false, None, None)?;
+        q.generate_prime(size, false, None, None)?;
         let e = BigNum::from_u32(3)?;
         let n = &p * &q;
         let et = &(&p - &BigNum::from_u32(1)?) * &(&q - &BigNum::from_u32(1)?);
