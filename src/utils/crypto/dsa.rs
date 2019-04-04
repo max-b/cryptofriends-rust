@@ -3,7 +3,7 @@ use crypto::digest::Digest;
 use crypto::sha1::Sha1;
 use num_traits::identities::Zero;
 use rand::OsRng;
-use utils::crypto::rsa::RSA;
+use utils::bigint;
 
 #[derive(Debug, Default, Clone)]
 pub struct Dsa {
@@ -107,7 +107,7 @@ impl Dsa {
 
         let xr = &self.private_key * &r;
 
-        let (_, invmod) = RSA::euclidean_algorithm(&self.params.q, &k);
+        let (_, invmod) = bigint::euclidean_algorithm(&self.params.q, &k);
 
         let s = (invmod * (&hash_value + xr)) % &self.params.q;
 
@@ -125,7 +125,7 @@ impl Dsa {
             return false;
         }
 
-        let (_, w) = RSA::euclidean_algorithm(&self.params.q, &s);
+        let (_, w) = bigint::euclidean_algorithm(&self.params.q, &s);
 
         let u1 = (&signature.message_hash * &w) % &self.params.q;
         let u2 = (r * &w) % &self.params.q;

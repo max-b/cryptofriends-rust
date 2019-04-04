@@ -35,9 +35,10 @@ mod tests {
     use bigint::BigUint;
     use openssl::bn::BigNum;
     use std::collections::HashMap;
-    use utils::crypto::rsa::{CubeRoot, RSA};
+    use utils::crypto::rsa::{RSA};
     use utils::crypto::DHKeyPair;
     use utils::entity::{Entity, HonestEntity, Message, MiTMEntity};
+    use utils::bigint;
 
     #[test]
     fn challenge_33() {
@@ -285,15 +286,15 @@ mod tests {
 
         let result = &snooped
             .iter()
-            .map(|(c, n)| c * &(&(&N / n) * &(RSA::euclidean_algorithm(n, &(&N / n)).1)))
+            .map(|(c, n)| c * &(&(&N / n) * &(bigint::euclidean_algorithm(n, &(&N / n)).1)))
             .fold(BigNum::from(0), |acc, x| &acc + &x)
             % &N;
 
         println!("result = {:?}", result);
 
-        if let CubeRoot::Exact(cuberoot) = RSA::cube_root(&result) {
+        if let bigint::CubeRoot::Exact(cuberoot) = bigint::cube_root(&result) {
             println!("cuberoot = {:?}", &cuberoot);
-            let plaintext = RSA::bignum_to_string(&cuberoot);
+            let plaintext = bigint::bignum_to_string(&cuberoot);
             println!("plaintext = {:?}", &plaintext);
         }
     }

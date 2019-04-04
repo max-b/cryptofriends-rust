@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use openssl::bn::{BigNum, BigNumContext};
 use utils::crypto::dsa::{DsaParams, DsaSignature};
 use utils::crypto::rsa::RSA;
-
+use utils::bigint;
 
 #[derive(Debug)]
 pub struct Range {
@@ -29,7 +29,7 @@ pub fn recover_dsa_private_key_from_signing_key(
     signature: &DsaSignature,
     k: &BigUint,
 ) -> Option<BigUint> {
-    let (_, inv_r) = RSA::euclidean_algorithm(&params.q, &signature.r);
+    let (_, inv_r) = bigint::euclidean_algorithm(&params.q, &signature.r);
     let sk = &signature.s * k;
     match sk.checked_sub(&signature.message_hash) {
         Some(t) => Some(((t % &params.q) * &inv_r) % &params.q),
@@ -196,7 +196,8 @@ mod tests {
     use rand::OsRng;
     use utils::bytes::{base64_to_bytes, random_bytes};
     use utils::crypto::dsa::Dsa;
-    use utils::crypto::rsa::{CubeRoot, RSA};
+    use utils::crypto::rsa::{RSA};
+    use utils::bigint;
 
     #[test]
     fn challenge_41() {
@@ -217,10 +218,10 @@ mod tests {
         c_prime = &(&c_prime * &ciphertext) % &rsa.n;
 
         let p_prime = rsa.decrypt(&c_prime).expect("rsa.decrypt");
-        let (_, s_inv) = RSA::euclidean_algorithm(&rsa.n, &s);
+        let (_, s_inv) = bigint::euclidean_algorithm(&rsa.n, &s);
         let p = &(&p_prime * &s_inv) % &rsa.n;
 
-        let recovered_plaintext = RSA::bignum_to_string(&p);
+        let recovered_plaintext = bigint::bignum_to_string(&p);
 
         println!("recovered plaintext = {:?}", &recovered_plaintext);
         assert_eq!(&plaintext, &recovered_plaintext);
@@ -239,11 +240,11 @@ mod tests {
             test_plaintext.extend_from_slice(&forged_plaintext);
             let right_pad = vec![0x00; num_pad];
             test_plaintext.extend_from_slice(&right_pad);
-            let cuberoot = RSA::cube_root(&BigNum::from_slice(&test_plaintext).unwrap());
+            let cuberoot = bigint::cube_root(&BigNum::from_slice(&test_plaintext).unwrap());
 
             let test_ciphertext = match cuberoot {
-                CubeRoot::Exact(n) => n,
-                CubeRoot::Nearest(n) => n,
+                bigint::CubeRoot::Exact(n) => n,
+                bigint::CubeRoot::Nearest(n) => n,
             };
 
             println!("test ciphertext = {:?}", test_ciphertext);
@@ -434,7 +435,7 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n";
 
                 let top = (&a.message_hash % &params.q) - (&b.message_hash % &params.q);
                 let (_, inv_bottom) =
-                    RSA::euclidean_algorithm(&params.q, &((&a.s % &params.q) - (&b.s % &params.q)));
+                    bigint::euclidean_algorithm(&params.q, &((&a.s % &params.q) - (&b.s % &params.q)));
 
                 let k = (top * inv_bottom) % &params.q;
 
@@ -602,8 +603,8 @@ So be friendly, a matter of life and death, just like a etch-a-sketch\n";
                 lower_bound = &lower_bound + &delta;
             }
 
-            let high_guess_string = RSA::bignum_to_string(&higher_bound);
-            let low_guess_string = RSA::bignum_to_string(&lower_bound);
+            let high_guess_string = bigint::bignum_to_string(&higher_bound);
+            let low_guess_string = bigint::bignum_to_string(&lower_bound);
             println!("guess = {:?}", &high_guess_string);
             println!("guess = {:?}", &low_guess_string);
             if high_guess_string.contains(actual_plaintext) {
