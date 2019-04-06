@@ -1,3 +1,6 @@
+pub mod challenge_39;
+pub mod challenge_40;
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -33,12 +36,9 @@ pub fn message_loop(
 mod tests {
     use super::*;
     use bigint::BigUint;
-    use openssl::bn::BigNum;
     use std::collections::HashMap;
-    use utils::crypto::rsa::{RSA};
     use utils::crypto::DHKeyPair;
     use utils::entity::{Entity, HonestEntity, Message, MiTMEntity};
-    use utils::bigint;
 
     #[test]
     fn challenge_33() {
@@ -252,51 +252,4 @@ mod tests {
 
         a.borrow_mut().send_encrypted_message(b"hi from a");
     }
-
-    #[test]
-    fn challenge_39() {
-        let rsa = RSA::new().expect("RSA::new()");
-        let plaintext = "this is a test of the emergency encryption system 💖";
-        println!("plaintext = {:?}", &plaintext);
-        let ciphertext = rsa.encrypt_string(&plaintext).expect("rsa.encrypt");
-        println!("ciphertext = {:?}", &ciphertext);
-        let decrypted = rsa.decrypt_string(&ciphertext).expect("rsa.decrypt");
-        println!("decrypted = {:?}", &decrypted);
-        assert_eq!(&plaintext, &decrypted);
-    }
-
-    #[test]
-    fn challenge_40() {
-        let plaintext = "i like to send the same message to alllllll of my friends, using my handrolled textbook RSA 😎";
-        println!("plaintext = {:?}", &plaintext);
-
-        let snooped: Vec<(BigNum, BigNum)> = (0..3)
-            .map(|_| {
-                let rsa = RSA::new().expect("RSA::new()");
-                let ciphertext = rsa.encrypt_string(&plaintext).expect("rsa.encrypt");
-
-                (ciphertext, rsa.n)
-            }).collect();
-
-        #[allow(non_snake_case)]
-        let N: BigNum = snooped
-            .iter()
-            .map(|(_c, n)| n)
-            .fold(BigNum::from(1), |acc, x| &acc * x);
-
-        let result = &snooped
-            .iter()
-            .map(|(c, n)| c * &(&(&N / n) * &(bigint::euclidean_algorithm(n, &(&N / n)).1)))
-            .fold(BigNum::from(0), |acc, x| &acc + &x)
-            % &N;
-
-        println!("result = {:?}", result);
-
-        if let bigint::CubeRoot::Exact(cuberoot) = bigint::cube_root(&result) {
-            println!("cuberoot = {:?}", &cuberoot);
-            let plaintext = bigint::bignum_to_string(&cuberoot);
-            println!("plaintext = {:?}", &plaintext);
-        }
-    }
-
 }

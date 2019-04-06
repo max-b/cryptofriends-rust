@@ -1,6 +1,8 @@
 use bigint::{BigUint};
-use openssl::bn::{BigNum, BigNumContext};
+use num_traits::One;
+use openssl::bn::{BigNum};
 use std::{cmp, ops};
+use num_traits::pow;
 
 pub fn bignum_to_biguint(bignum: &BigNum) -> BigUint {
     BigUint::from_bytes_be(&bignum.to_vec())
@@ -75,30 +77,24 @@ pub enum CubeRoot<T> {
     Nearest(T),
 }
 
-pub fn cube_root(n: &BigNum) -> CubeRoot<BigNum> {
+pub fn cube_root(n: &BigUint) -> CubeRoot<BigUint> {
     // Do a cube root via binary search, since it's not implemented in OpenSSL BigNum :D
 
-    let mut left = BigNum::from(1);
-    let mut right = n + &BigNum::from(0); // "clone"
+    let mut left = BigUint::from(1 as u32);
+    let mut right = n.clone();
 
     while left != right {
-        let midpoint = &(&left + &right) / &BigNum::from(2);
+        let midpoint = (&left + &right) / &BigUint::from(2 as u32);
 
-        let mut cube = BigNum::new().unwrap();
-        let mut ctx = BigNumContext::new().unwrap();
-        cube.exp(&midpoint, &BigNum::from(3), &mut ctx)
-            .expect("exp");
+        let cube = pow(midpoint.clone(), 3);
 
         if &cube == n {
             return CubeRoot::Exact(midpoint);
         }
 
-        if (&right - &left) == BigNum::from(1) {
-            let mut right_cube = BigNum::new().unwrap();
-            let mut ctx = BigNumContext::new().unwrap();
-            right_cube
-                .exp(&right, &BigNum::from(3), &mut ctx)
-                .expect("exp");
+        if (&right - &left) == BigUint::one() {
+            let right_cube = pow(right.clone(), 3);
+
             if &right_cube == n {
                 return CubeRoot::Exact(right);
             } else if (n - &cube) < (&right_cube - n) {
@@ -117,8 +113,17 @@ pub fn cube_root(n: &BigNum) -> CubeRoot<BigNum> {
     CubeRoot::Nearest(left)
 }
 
+pub fn string_to_biguint(string: &str) -> BigUint {
+    BigUint::from_bytes_be(&string.as_bytes())
+}
+
 pub fn string_to_bignum(string: &str) -> Result<BigNum, openssl::error::ErrorStack> {
     BigNum::from_slice(string.as_bytes())
+}
+
+pub fn biguint_to_string(num: &BigUint) -> String {
+    let bytes = num.to_bytes_be();
+    String::from_utf8_lossy(&bytes[..]).to_string()
 }
 
 pub fn bignum_to_string(num: &BigNum) -> String {
