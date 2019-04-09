@@ -2,7 +2,7 @@ pub mod dsa;
 pub mod prng;
 pub mod rsa;
 
-use super::bytes::{pad_bytes, xor};
+use super::bytes::{pad_bytes, xor, random_bytes};
 use bigint::{BigUint, RandBigInt};
 use byteorder::{LittleEndian, WriteBytesExt};
 use crypto::aessafe;
@@ -53,6 +53,26 @@ pub fn pkcs_7_pad(input: &[u8], size: usize) -> Vec<u8> {
     }
 
     pad_bytes(input, difference as u8, difference)
+}
+
+pub fn pkcs_1_pad(input: &[u8], k: usize) -> Vec<u8> {
+    let padding_bytes = random_bytes((k - 3 - input.len()) as u32);
+    let mut output = vec![0x00, 0x02];
+    output.extend_from_slice(&padding_bytes);
+    output.extend_from_slice(&[0x00]);
+    output.extend_from_slice(input);
+
+    output
+}
+
+pub fn pkcs_1_unpad(input: &[u8]) -> Vec<u8> {
+    let mut i = 2;
+    while input[i] != 0 {
+        i += 1;
+    }
+    let mut output = vec![];
+    output.extend_from_slice(&input[i+1..]);
+    output
 }
 
 pub fn ecb_decrypt(key: &[u8], ciphertext: &[u8]) -> Vec<u8> {

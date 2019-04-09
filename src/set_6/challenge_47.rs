@@ -84,39 +84,33 @@ pub fn ceil_div(num: &BigUint, den: &BigUint) -> BigUint {
 mod tests {
     use super::*;
     use std::cmp;
-    use utils::bytes::{random_bytes};
+    use utils::crypto::{pkcs_1_pad, pkcs_1_unpad};
     use utils::crypto::rsa::RSA;
     use num_traits::pow;
-    use num_traits::{One, Zero};
+    use num_traits::{One};
 
     #[test]
     fn challenge_47() {
         // We're going to re-use these a bunch, so might as well
-        let zero = BigUint::zero();
         let one = BigUint::one();
         let two = BigUint::from(2 as u32);
         let three = BigUint::from(3 as u32);
 
         let rsa = RSA::new_with_size(384);
         let k = rsa.n.bits() / 8;
-
         #[allow(non_snake_case)]
         let B = pow(two.clone(), 8 * (k - 2) as usize);
+
         let plaintext_bytes = "kick it, CC".as_bytes();
+
+        let padded_plaintext = pkcs_1_pad(&plaintext_bytes, k);
+        let plaintext_num = BigUint::from_bytes_be(&padded_plaintext);
+        let ciphertext = rsa.encrypt(&plaintext_num);
 
         let n_min = pow(two.clone(), (8 * (k - 1)) as usize);
         assert!(&n_min <= &rsa.n);
         let n_max = pow(two.clone(), (8 * k) as usize);
         assert!(&n_max > &rsa.n);
-
-        // TODO: refactor pkcs padding into library
-        let padding_bytes = random_bytes((k - 3 - plaintext_bytes.len()) as u32);
-        let mut padded_plaintext = vec![0x00, 0x02];
-        padded_plaintext.extend_from_slice(&padding_bytes);
-        padded_plaintext.extend_from_slice(&[0x00]);
-        padded_plaintext.extend_from_slice("kick it, CC".as_bytes());
-        let plaintext_num = BigUint::from_bytes_be(&padded_plaintext);
-        let ciphertext = rsa.encrypt(&plaintext_num);
 
         // Step 1
         let mut s = vec![one.clone()];
@@ -202,5 +196,12 @@ mod tests {
 
         assert!(&M[i][0].min == &plaintext_num);
         println!("FOUND :)");
+
+        let padded_found_plaintext = &M[i][0].min.to_bytes_be();
+        let found_plaintext = pkcs_1_unpad(&padded_found_plaintext);
+        println!("found_plaintext = {:?}", &found_plaintext);
+
+        let found_plaintext_string = String::from_utf8_lossy(&found_plaintext);
+        println!("found_plaintext_string = {}", &found_plaintext_string);
     }
 }
