@@ -4,7 +4,7 @@ pub mod challenge_43;
 pub mod challenge_44;
 pub mod challenge_45;
 pub mod challenge_46;
-// pub mod challenge_47;
+pub mod challenge_47;
 
 use bigint::BigUint;
 use num_traits::ops::checked::CheckedSub;
