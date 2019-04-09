@@ -69,4 +69,4 @@ My attempts at working through the [cryptopals](https://cryptopals.com) challeng
 - [X] Challenge 45: DSA parameter tampering
 - [X] Challenge 46: RSA parity oracle
 - [X] Challenge 47: Bleichenbacher's PKCS 1.5 Padding Oracle (Simple Case)
-- [ ] Challenge 48: Bleichenbacher's PKCS 1.5 Padding Oracle (Complete Case)
+- [X] Challenge 48: Bleichenbacher's PKCS 1.5 Padding Oracle (Complete Case)
