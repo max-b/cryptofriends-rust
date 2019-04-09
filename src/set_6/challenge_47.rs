@@ -36,20 +36,22 @@ pub fn bleichenbacher_step_2(i: usize, c0: &BigUint, s: &mut Vec<BigUint>, M: &V
         let mut s_new = ceil_div(&rsa.n, &(&three * B));
 
         if i > 1 {
+            println!("STEP 2b");
             s_new = &s[i - 1] + &one;
+        } else {
+            println!("STEP 2a");
         }
         // search for smallest integer s[i] > s[i-1] such that c0(s[i]^e) % n is pkcs conforming
         
         let mut s_e_mod_n = s_new.modpow(&rsa.e, &rsa.n);
         while !bleichenbacher_oracle(&((c0 * &s_e_mod_n) % &rsa.n), &rsa) {
-            // println!("s_new = {:?}", &s_new);
-            // println!("s_e_mod_n = {:?}", &s_e_mod_n);
             s_new = &s_new + &one;
             s_e_mod_n = s_new.modpow(&rsa.e, &rsa.n);
         }
 
         s.push(s_new)
     } else {
+        println!("STEP 2c");
         // search for s[i] r[i] such that 
         // r[i] >= (2 * (b*s[i - 1] - 2B)) / n
         // s[i] >= (2B + r[i]*n) / b && s[i] < (2B + r[i]*n)  a
@@ -95,7 +97,7 @@ mod tests {
         let two = BigUint::from(2 as u32);
         let three = BigUint::from(3 as u32);
 
-        let rsa = RSA::new_with_size(128);
+        let rsa = RSA::new_with_size(384);
         let k = rsa.n.bits() / 8;
 
         #[allow(non_snake_case)]
@@ -138,62 +140,58 @@ mod tests {
             
             bleichenbacher_step_2(i, &c0, &mut s, &M, &B, &rsa, &plaintext_num);
 
-            assert!(s.len() > 1);
-
             // Step 3
-            // Not yet handling the case of M containing multiple ranges
-            assert!(M[i - 1].len() == 1);
-
-            let a = &M[i - 1][0].min + &zero;
-            let b = &M[i - 1][0].max + &zero;
-
-            // We're taking a ceiling here because r >= the computed (float) r_min value
-            let r_min = ceil_div(&(&(&(&a * &s[i]) - &(&three * &B)) + &one), &rsa.n);
-            let r_max = &(&(&b * &s[i]) - &(&two * &B)) / &rsa.n;
-
-            // For now only handle r_max == r_min
-            assert!(r_max == r_min);
+            println!("STEP 3");
             let mut m_new: Vec<Range> = Vec::new();
+            for range in &M[i - 1] {
+                let a = range.min.clone();
+                let b = range.max.clone();
 
-            let mut r = &r_min + &zero;
-            while r <= r_max {
+                // We're taking a ceiling here because r >= the computed (float) r_min value
+                let r_min = ceil_div(&(&(&(&a * &s[i]) - &(&three * &B)) + &one), &rsa.n);
+                let r_max = &(&(&b * &s[i]) - &(&two * &B)) / &rsa.n;
 
-                let new_min = cmp::max(
-                    &a + &zero, 
-                    ceil_div(&(&(&two * &B) + &(&r * &rsa.n)), &s[i])
-                );
+                // For now only handle r_max == r_min
+                // assert!(r_max == r_min);
 
-                let new_max = cmp::min(
-                    &b + &zero,
-                    &(&(&(&three * &B) - &one) + &(&r * &rsa.n)) / &s[i]
-                );
+                let mut r = r_min.clone();
+                while r <= r_max {
 
-                let mut contains = false;
-                let new_range = Range {
-                    min: new_min,
-                    max: new_max,
-                };
+                    let new_min = cmp::max(
+                        a.clone(), 
+                        ceil_div(&(&(&two * &B) + &(&r * &rsa.n)), &s[i])
+                    );
 
-                // TODO: fix overlapping issue???
-                for range in &m_new {
-                    contains = contains || range.contains(&new_range);
+                    let new_max = cmp::min(
+                        b.clone(),
+                        &(&(&(&three * &B) - &one) + &(&r * &rsa.n)) / &s[i]
+                    );
+
+                    let mut contains = false;
+                    let new_range = Range {
+                        min: new_min,
+                        max: new_max,
+                    };
+
+                    // TODO: fix overlapping issue???
+                    for range in &m_new {
+                        contains = contains || range.contains(&new_range);
+                    }
+
+                    if !contains && 
+                        new_range.min <= new_range.max &&
+                        new_range.min >= &two * &B &&
+                        new_range.max <= &three * &B {
+
+                        m_new.push(new_range);
+                    }
+
+                    r = &r + &one;
                 }
-
-                if !contains && new_range.min <= new_range.max {
-                    m_new.push(new_range);
-                }
-
-                r = &r + &one;
             }
 
             M.push(m_new);
             println!("i = {:?}", i);
-            println!("M[i].min = {:?}", &M[i][0].min);
-            println!("M[i].max = {:?}", &M[i][0].max);
-            println!("m =        {:?}", &plaintext_num);
-            assert!(M[i].len() == 1);
-            assert!(&M[i][0].min <= &plaintext_num);
-            assert!(&M[i][0].max >= &plaintext_num);
 
             // Step 4
             // i <- i + 1
