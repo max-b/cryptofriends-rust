@@ -42,7 +42,7 @@ My attempts at working through the [cryptopals](https://cryptopals.com) challeng
 
 - [X] Challenge 25: Break "random access read/write" AES CTR
 - [X] Challenge 26: CTR bitflipping
-- [ ] Challenge 27: Recover the key from CBC with IV=Key
+- [X] Challenge 27: Recover the key from CBC with IV=Key
 - [X] Challenge 28: Implement a SHA-1 keyed MAC
 - [X] Challenge 29: Break a SHA-1 keyed MAC using length extension
 - [ ] Challenge 30: Break an MD4 keyed MAC using length extension
