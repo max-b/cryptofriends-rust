@@ -4,15 +4,19 @@ pub mod rsa;
 
 use super::bytes::{pad_bytes, xor, random_bytes};
 use bigint::{BigUint, RandBigInt};
-use byteorder::{LittleEndian, WriteBytesExt};
+use byteorder::{ByteOrder, LittleEndian, BigEndian, WriteBytesExt};
 use crypto::aessafe;
-use crypto::cryptoutil::write_u32_be;
-use crypto::digest::Digest;
+use crypto::cryptoutil::{write_u32_be, write_u32_le};
+use crypto::digest::Digest as CryptoDigest;
 use crypto::sha1::Sha1;
 use crypto::symmetriccipher::{BlockDecryptor, BlockEncryptor};
+use md4;
+use md4::Digest as Md4Digest;
 use rand::OsRng;
 
 use self::prng::Prng;
+
+static HASH_PAD_TO_BYTE_LENGTH: usize = 64;
 
 pub fn pkcs_7_unpad(input: &[u8]) -> Vec<u8> {
     let amount_padded = input[input.len() - 1];
@@ -311,7 +315,7 @@ pub fn prng_cipher<T: Prng>(seed: u16, input: &[u8]) -> Vec<u8> {
     output
 }
 
-pub fn sha1(key: &[u8], message: &[u8]) -> Vec<u8> {
+pub fn keyed_sha1(key: &[u8], message: &[u8]) -> Vec<u8> {
     let mut concated_bytes = Vec::new();
     concated_bytes.extend_from_slice(&key[..]);
     concated_bytes.extend_from_slice(&message[..]);
@@ -324,6 +328,22 @@ pub fn sha1(key: &[u8], message: &[u8]) -> Vec<u8> {
     let mut output_bytes = vec![0; output_size / 8];
 
     hasher.result(&mut output_bytes);
+
+    output_bytes
+}
+
+pub fn keyed_md4(key: &[u8], message: &[u8]) -> Vec<u8> {
+    let mut concated_bytes = Vec::new();
+    concated_bytes.extend_from_slice(&key[..]);
+    concated_bytes.extend_from_slice(&message[..]);
+
+    let mut hasher = md4::Md4::new();
+
+    hasher.input(&concated_bytes[..]);
+
+    let mut output_bytes = Vec::new();
+
+    output_bytes.extend_from_slice(&hasher.result());
 
     output_bytes
 }
@@ -344,15 +364,16 @@ pub fn sha1_unpadded(message: &[u8]) -> Vec<u8> {
     write_u32_be(&mut output_bytes[8..12], sha_object.h[2]);
     write_u32_be(&mut output_bytes[12..16], sha_object.h[3]);
     write_u32_be(&mut output_bytes[16..20], sha_object.h[4]);
-    // sha_object.result(&mut output_bytes);
 
     output_bytes
 }
 
-pub fn sha1_registers(a: u32, b: u32, c: u32, d: u32, e: u32, message: &[u8]) -> Vec<u8> {
+pub fn compute_sha1_from_registers(a: u32, b: u32, c: u32, d: u32, e: u32, message: &[u8]) -> Vec<u8> {
     let mut sha_object = Sha1::new();
     sha_object.h = [a, b, c, d, e];
 
+    // As can be seen from a few lines below,
+    // hash output size is always 20 bytes
     let output_size = sha_object.output_bits();
     let mut output_bytes = vec![0; output_size / 8];
 
@@ -364,15 +385,35 @@ pub fn sha1_registers(a: u32, b: u32, c: u32, d: u32, e: u32, message: &[u8]) ->
     write_u32_be(&mut output_bytes[8..12], sha_object.h[2]);
     write_u32_be(&mut output_bytes[12..16], sha_object.h[3]);
     write_u32_be(&mut output_bytes[16..20], sha_object.h[4]);
-    // sha_object.result(&mut output_bytes);
 
     output_bytes
 }
 
-pub fn md_padding_with_length(_input: &[u8], input_len: usize) -> Vec<u8> {
-    let hasher = Sha1::new();
+pub fn compute_md4_from_registers(a: u32, b: u32, c: u32, d: u32, message: &[u8]) -> Vec<u8> {
+    let mut md4_object = md4::Md4::new();
+    md4_object.state = md4::Md4State {
+        s: md4::simd::u32x4(a, b, c, d)
+    };
 
-    let block_size = hasher.block_size();
+    md4_object.input(&message[..]);
+    // md4_object.finalize();
+
+    let mut output_bytes = vec![0; 16];
+    write_u32_le(&mut output_bytes[0..4], md4_object.state.s.0);
+    write_u32_le(&mut output_bytes[4..8], md4_object.state.s.1);
+    write_u32_le(&mut output_bytes[8..12], md4_object.state.s.2);
+    write_u32_le(&mut output_bytes[12..16], md4_object.state.s.3);
+
+    output_bytes
+}
+
+pub enum Endianness {
+    Little,
+    Big
+}
+
+pub fn md_padding(input_len: usize, e: Endianness) -> Vec<u8> {
+    let block_size = HASH_PAD_TO_BYTE_LENGTH;
 
     let diff = block_size - (input_len % block_size);
     let input_len_bits = (input_len * 8) as u64;
@@ -383,40 +424,23 @@ pub fn md_padding_with_length(_input: &[u8], input_len: usize) -> Vec<u8> {
     // previous byte (1000 0000)
     padding[0] = 128;
 
-    write_u32_be(
-        &mut padding[diff - 8..diff - 4],
-        (input_len_bits >> 32) as u32,
-    );
-    write_u32_be(&mut padding[diff - 4..diff], input_len_bits as u32);
+    if let Endianness::Big = e {
+        BigEndian::write_u64(
+            &mut padding[diff - 8..diff],
+            input_len_bits,
+        );
+    } else {
+        LittleEndian::write_u64(
+            &mut padding[diff - 8..diff],
+            input_len_bits
+        );
+    }
 
     padding
 }
 
-pub fn md_padding(input: &[u8]) -> Vec<u8> {
-    let hasher = Sha1::new();
-
-    let block_size = hasher.block_size();
-
-    let diff = block_size - (input.len() % block_size);
-    let input_len_bits = (input.len() * 8) as u64;
-
-    let mut padding: Vec<u8> = vec![0; diff];
-
-    // 128 represents a 1 (in binary) digit immediately after
-    // previous byte (1000 0000)
-    padding[0] = 128;
-
-    write_u32_be(
-        &mut padding[diff - 8..diff - 4],
-        (input_len_bits >> 32) as u32,
-    );
-    write_u32_be(&mut padding[diff - 4..diff], input_len_bits as u32);
-
-    padding
-}
-
-pub fn md_pad(input: &[u8]) -> Vec<u8> {
-    let padding = md_padding(&input);
+pub fn sha1_md_pad(input: &[u8]) -> Vec<u8> {
+    let padding = md_padding(input.len(), Endianness::Big);
     let mut output = Vec::new();
     output.extend_from_slice(&input[..]);
     output.extend_from_slice(&padding[..]);
@@ -556,11 +580,11 @@ mod tests {
 
     #[test]
     fn pad_test() {
-        let padded = md_pad(b"123testingtesting\n");
+        let padded = sha1_md_pad(b"123testingtesting\n");
         let unpadded = b"123testingtesting\n";
         let null_bytes = [];
         let padded_sha1 = sha1_unpadded(&padded[..]);
-        let unpadded_sha1 = sha1(&null_bytes, &unpadded[..]);
+        let unpadded_sha1 = keyed_sha1(&null_bytes, &unpadded[..]);
         assert_eq!(padded_sha1, unpadded_sha1);
     }
 }

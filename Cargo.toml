@@ -14,6 +14,8 @@ url = "1.7.1"
 reqwest = "0.8.6"
 num-traits = "0.2"
 num-integer = "0.1.39"
+digest = "0.8.0"
+md4 = { git = "https://github.com/max-b/cryptopals-md4" }
 
 [dependencies.num-bigint]
 version = "0.2"

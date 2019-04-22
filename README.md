@@ -45,7 +45,7 @@ My attempts at working through the [cryptopals](https://cryptopals.com) challeng
 - [X] Challenge 27: Recover the key from CBC with IV=Key
 - [X] Challenge 28: Implement a SHA-1 keyed MAC
 - [X] Challenge 29: Break a SHA-1 keyed MAC using length extension
-- [ ] Challenge 30: Break an MD4 keyed MAC using length extension
+- [X] Challenge 30: Break an MD4 keyed MAC using length extension
 - [X] Challenge 31: Implement and break HMAC-SHA1 with an artificial timing leak
 - [X] Challenge 32: Break HMAC-SHA1 with a slightly less artificial timing leak
 

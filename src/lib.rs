@@ -21,6 +21,7 @@ extern crate openssl;
 extern crate rand;
 extern crate reqwest;
 extern crate url;
+extern crate md4;
 
 pub mod utils;
 
