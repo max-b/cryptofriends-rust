@@ -100,6 +100,8 @@ impl ServerSRP {
                                         let computed_hmac = compute_hmac(&K, &client.salt);
 
                                         client.sender.send(Message::LoginSuccess(computed_hmac == mac_input)).unwrap();
+                                        // Reset status to Registered
+                                        client.status = SessionStatus::Registered;
                                     }
                                 } else {
                                     println!("Client not in login initiated state: {:x?}", &email);

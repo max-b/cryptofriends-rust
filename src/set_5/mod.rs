@@ -1,5 +1,7 @@
 #[allow(non_snake_case)]
 pub mod challenge_36;
+#[allow(non_snake_case)]
+pub mod challenge_37;
 pub mod challenge_39;
 pub mod challenge_40;
 
