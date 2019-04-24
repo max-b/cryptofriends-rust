@@ -2,6 +2,7 @@ pub mod dsa;
 pub mod prng;
 pub mod rsa;
 pub mod dh;
+#[allow(non_snake_case, non_upper_case_globals)]
 pub mod srp;
 
 use super::bytes::{pad_bytes, xor, random_bytes};
