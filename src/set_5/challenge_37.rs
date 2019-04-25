@@ -3,7 +3,7 @@ mod tests {
     use std::sync::mpsc;
     use bigint::{BigUint};
     use num_traits::Pow;
-    use utils::crypto::srp::{ServerSRP, Message, hash_biguint, compute_hmac};
+    use utils::crypto::srp::{SRPServer, Message, hash_biguint, compute_hmac};
     use utils::misc::nist_prime;
 
     #[test]
@@ -16,7 +16,7 @@ mod tests {
         let (tx1, rx1) = mpsc::channel();
         let (tx2, rx2) = mpsc::channel();
 
-        ServerSRP::start(rx1);
+        SRPServer::start(rx1);
 
 
         tx1.send(Message::Register(email.to_vec(), password.to_vec(), tx2)).unwrap();

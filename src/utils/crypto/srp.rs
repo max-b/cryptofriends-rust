@@ -16,8 +16,11 @@ pub static k: u32 = 3;
 pub enum Message {
     Register(Vec<u8>, Vec<u8>, Sender<Message>), // email, password
     InitiateLogin(Vec<u8>, BigUint), // email, A
+    SimplifiedInitiateLogin(Vec<u8>, BigUint), // email, A
     LoginResponse(BigUint, BigUint), // salt, B
+    SimplifiedLoginResponse(BigUint, BigUint, BigUint), // salt, B, u
     AttemptLogin(Vec<u8>, MacResult), // email, Mac
+    SimplifiedAttemptLogin(Vec<u8>, MacResult), // email, Mac
     LoginSuccess(bool),
 }
 
@@ -35,16 +38,17 @@ pub struct ClientState {
     pub sender: Sender<Message>,
     pub A: Option<BigUint>,
     pub B: Option<BigUint>,
+    pub u: Option<BigUint>,
 }
 
-pub struct ServerSRP {
+pub struct SRPServer {
     pub clients: HashMap<Vec<u8>, ClientState>,
 }
 
-impl ServerSRP {
+impl SRPServer {
     pub fn start(receiver: Receiver<Message>) {
         let mut rng = OsRng::new().expect("Can't get rng");
-        let mut server = ServerSRP {
+        let mut server = SRPServer {
             clients: HashMap::new(),
         };
         let N = nist_prime();
@@ -56,7 +60,7 @@ impl ServerSRP {
                         if server.clients.contains_key(&email) {
                             println!("Email already registered: {:x?}", &email);
                         } else {
-                            let (salt, v) = Self::generate_vals(&password);
+                            let (salt, v) = generate_vals(&password);
                             let b = rng.gen_biguint_below(&N);
                             server.clients.insert(email, ClientState {
                                 status: SessionStatus::Registered,
@@ -66,7 +70,28 @@ impl ServerSRP {
                                 sender,
                                 A: None,
                                 B: None,
+                                u: None,
                             });
+                        }
+                    },
+                    Message::SimplifiedInitiateLogin(email, A) => {
+                        match server.clients.get_mut(&email) {
+                            Some(client) => {
+                                if client.status == SessionStatus::Registered {
+                                    let B = BigUint::from(g).modpow(&client.b, &N);
+                                    let u = rng.gen_biguint(128);
+                                    client.sender.send(Message::SimplifiedLoginResponse(client.salt.clone(), B.clone(), u.clone())).unwrap();
+                                    client.B = Some(B);
+                                    client.A = Some(A);
+                                    client.u = Some(u);
+                                    client.status = SessionStatus::LoginInitiated;
+                                } else {
+                                    println!("Client not in registered state: {:x?}", &email);
+                                }
+                            },
+                            None => {
+                                println!("Email not registered: {:x?}", &email);
+                            }
                         }
                     },
                     Message::InitiateLogin(email, A) => {
@@ -87,6 +112,29 @@ impl ServerSRP {
                             }
                         }
                     },
+                    Message::SimplifiedAttemptLogin(email, mac_input) => {
+                        match server.clients.get_mut(&email) {
+                            Some(client) => {
+                                if client.status == SessionStatus::LoginInitiated {
+                                    if let (Some(A), Some(u)) = (&client.A, &client.u) {
+                                        let S = (&(A * client.v.modpow(&u, &N)) % &N).modpow(&client.b, &N);
+
+                                        let K = hash_biguint(&S);
+                                        let computed_hmac = compute_hmac(&K, &client.salt);
+
+                                        client.sender.send(Message::LoginSuccess(computed_hmac == mac_input)).unwrap();
+                                        // Reset status to Registered
+                                        client.status = SessionStatus::Registered;
+                                    }
+                                } else {
+                                    println!("Client not in login initiated state: {:x?}", &email);
+                                }
+                            }
+                            None => {
+                                println!("Email not registered: {:x?}", &email);
+                            }
+                        }
+                    }
                     Message::AttemptLogin(email, mac_input) => {
                         match server.clients.get_mut(&email) {
                             Some(client) => {
@@ -122,17 +170,18 @@ impl ServerSRP {
         });
     }
 
-    fn generate_vals(password: &[u8]) -> (BigUint, BigUint) {
-        let N = nist_prime();
-        let mut rng = OsRng::new().expect("Can't get rng");
-        let salt = rng.gen_biguint_below(&N);
+}
 
-        let x = hash_salt_password(&salt, &password);
+pub fn generate_vals(password: &[u8]) -> (BigUint, BigUint) {
+    let N = nist_prime();
+    let mut rng = OsRng::new().expect("Can't get rng");
+    let salt = rng.gen_biguint_below(&N);
 
-        let v = BigUint::from(g).modpow(&x, &N);
+    let x = hash_salt_password(&salt, &password);
 
-        (salt, v)
-    }
+    let v = BigUint::from(g).modpow(&x, &N);
+
+    (salt, v)
 }
 
 pub fn hash_salt_password(salt: &BigUint, password: &[u8]) -> BigUint {

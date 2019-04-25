@@ -3,7 +3,7 @@ mod tests {
     use std::sync::mpsc;
     use bigint::{BigUint, RandBigInt};
     use rand::OsRng;
-    use utils::crypto::srp::{g, k, ServerSRP, Message, hash_concat, hash_salt_password, hash_biguint, compute_hmac};
+    use utils::crypto::srp::{g, k, SRPServer, Message, hash_concat, hash_salt_password, hash_biguint, compute_hmac};
     use utils::misc::nist_prime;
 
     #[test]
@@ -20,7 +20,7 @@ mod tests {
 
         let a = rng.gen_biguint_below(&N);
 
-        ServerSRP::start(rx1);
+        SRPServer::start(rx1);
 
         tx1.send(Message::Register(email.to_vec(), password.to_vec(), tx2)).unwrap();
 
