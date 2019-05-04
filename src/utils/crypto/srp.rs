@@ -80,7 +80,12 @@ impl SRPServer {
                                 if client.status == SessionStatus::Registered {
                                     let B = BigUint::from(g).modpow(&client.b, &N);
                                     let u = rng.gen_biguint(128);
-                                    client.sender.send(Message::SimplifiedLoginResponse(client.salt.clone(), B.clone(), u.clone())).unwrap();
+                                    client.sender.send(
+                                        Message::SimplifiedLoginResponse(
+                                            client.salt.clone(),
+                                            B.clone(),
+                                            u.clone()
+                                        )).unwrap();
                                     client.B = Some(B);
                                     client.A = Some(A);
                                     client.u = Some(u);
@@ -90,7 +95,10 @@ impl SRPServer {
                                 }
                             },
                             None => {
-                                println!("Email not registered: {:x?}", &email);
+                                println!(
+                                    "Email not registered: {:x?}",
+                                    &email
+                                );
                             }
                         }
                     },

@@ -56,7 +56,7 @@ My attempts at working through the [cryptopals](https://cryptopals.com) challeng
 - [X] Challenge 35: Implement DH with negotiated groups, and break with malicious "g" parameters
 - [X] Challenge 36: Implement Secure Remote Password (SRP)
 - [X] Challenge 37: Break SRP with a zero key
-- [ ] Challenge 38: Offline dictionary attack on simplified SRP
+- [X] Challenge 38: Offline dictionary attack on simplified SRP
 - [X] Challenge 39: Implement RSA
 - [X] Challenge 40: Implement an E=3 RSA Broadcast attack
 

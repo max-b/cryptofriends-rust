@@ -5,6 +5,11 @@ use std::f64;
 use std::io::{Error, ErrorKind};
 use std::str;
 use bigint::BigUint;
+use rand::{OsRng, Rng};
+use std::fs;
+use std::io::prelude::*;
+use std::io::{Lines, BufReader};
+use std::path::PathBuf;
 
 fn get_chi_squared(buf: &[u8]) -> f64 {
     let english_freq = vec![
@@ -208,6 +213,34 @@ pub fn nist_prime() -> BigUint {
     c55d39a69163fa8fd24cf5f83655d23dca3ad961c62f356208552\
     bb9ed529077096966d670c354e4abc9804f1746c08ca237327fff\
     fffffffffffff")
+}
+
+pub fn generate_words() -> (Lines<BufReader<fs::File>>, usize) {
+    let words_path = PathBuf::from("/usr/share/dict/words");
+
+    let file = fs::File::open(&words_path).expect("Error opening words file.");
+    let buf_reader = BufReader::new(file);
+    let num_lines = buf_reader.lines().count();
+
+    // It seems like BufReader consumes the file object,
+    // so I *think* re-opening is necessary
+    let file = fs::File::open(&words_path).expect("Error opening words file.");
+    let buf_reader = BufReader::new(file);
+    (buf_reader.lines(), num_lines)
+}
+
+pub fn generate_password() -> Vec<u8> {
+    let mut rng = match OsRng::new() {
+        Ok(g) => g,
+        Err(e) => panic!("Failed to obtain OS RNG: {}", e),
+    };
+
+    let (mut lines, num_lines) = generate_words();
+    let choice = rng.gen_range(0, num_lines);
+
+    let word = lines.nth(choice).unwrap().unwrap();
+
+    word.as_bytes().to_vec()
 }
 
 #[cfg(test)]
