@@ -3,6 +3,7 @@ mod tests {
     use std::sync::mpsc;
     use bigint::{BigUint, RandBigInt};
     use rand::OsRng;
+    use rayon::prelude::*;
     use utils::crypto::srp::{g, SRPServer, Message, hash_salt_password, hash_biguint, compute_hmac};
     use utils::misc::{generate_password, generate_words, nist_prime};
 
@@ -80,28 +81,21 @@ mod tests {
         // v = g**x % n
         // S = (A * v ** u)**b % n
         // K = SHA256(S)
-        let mut found_password = None;
-        let (lines, _) = generate_words();
+        let (mut lines, _) = generate_words();
 
-        let mut count = 0;
-        for line in lines {
-            if count % 1000 == 0 {
-                println!("count = {}", count);
-            }
+        let buffered_lines: Vec<String> = lines
+            .map(|l| l.expect("Could not parse line"))
+            .collect();
 
-            let word_string = line.unwrap();
-            let word = word_string.as_bytes();
+        let found_password = buffered_lines.par_iter().find_first(|line| {
+            let word = line.as_bytes();
             let x = hash_salt_password(&salt, &word);
             let v = BigUint::from(g).modpow(&x, &N);
             let S = (&(&A * v.modpow(&u, &N)) % &N).modpow(&b, &N);
             let K = hash_biguint(&S);
             let computed_hmac = compute_hmac(&K, &salt);
-            if computed_hmac == hmac {
-                found_password = Some(word_string.clone());
-                break;
-            }
-            count += 1;
-        }
+            computed_hmac == hmac
+        });
 
         assert!(found_password.is_some());
         if let Some(found_password) = found_password {

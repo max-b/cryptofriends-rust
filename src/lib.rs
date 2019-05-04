@@ -22,6 +22,7 @@ extern crate rand;
 extern crate reqwest;
 extern crate url;
 extern crate md4;
+extern crate rayon;
 
 pub mod utils;
 
