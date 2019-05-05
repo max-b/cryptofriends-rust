@@ -1,5 +1,5 @@
-use openssl::bn::BigNum;
 use bigint::BigUint;
+use openssl::bn::BigNum;
 use utils::bigint;
 
 #[derive(Debug)]
@@ -16,8 +16,8 @@ impl RSA {
 
     pub fn new_with_size(size: i32) -> RSA {
         let (mut p, mut q) = (
-            BigNum::new().expect("BigNum::new()"), 
-            BigNum::new().expect("BigNum::new()")
+            BigNum::new().expect("BigNum::new()"),
+            BigNum::new().expect("BigNum::new()"),
         );
 
         p.generate_prime(size, false, None, None)
@@ -25,10 +25,7 @@ impl RSA {
         q.generate_prime(size, false, None, None)
             .expect("generate_prime");
 
-        let (p, q) = (
-            bigint::bignum_to_biguint(&p),
-            bigint::bignum_to_biguint(&q),
-        );
+        let (p, q) = (bigint::bignum_to_biguint(&p), bigint::bignum_to_biguint(&q));
 
         let e = BigUint::from(3 as u32);
         let n = &p * &q;
@@ -55,10 +52,7 @@ impl RSA {
         self.encrypt(&bigint::string_to_biguint(plaintext))
     }
 
-    pub fn decrypt_string(
-        &self,
-        ciphertext: &BigUint,
-    ) -> String {
+    pub fn decrypt_string(&self, ciphertext: &BigUint) -> String {
         let plaintext = self.decrypt(ciphertext);
         bigint::biguint_to_string(&plaintext)
     }

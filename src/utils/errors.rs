@@ -1,7 +1,7 @@
-use std::error;
-use std::result;
-use std::fmt::{self, Display, Formatter};
 use openssl;
+use std::error;
+use std::fmt::{self, Display, Formatter};
+use std::result;
 
 #[derive(Debug)]
 enum Error {
@@ -16,8 +16,7 @@ impl Display for Error {
     }
 }
 
-impl error::Error for Error {
-}
+impl error::Error for Error {}
 
 impl From<openssl::error::ErrorStack> for Error {
     fn from(error: openssl::error::ErrorStack) -> Self {

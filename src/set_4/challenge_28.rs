@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use utils::bytes::*;
-    use utils::crypto::{keyed_sha1};
+    use utils::crypto::keyed_sha1;
 
     #[test]
     fn challenge_28() {

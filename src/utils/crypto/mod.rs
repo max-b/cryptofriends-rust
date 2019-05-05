@@ -1,12 +1,12 @@
+pub mod dh;
 pub mod dsa;
 pub mod prng;
 pub mod rsa;
-pub mod dh;
 #[allow(non_snake_case, non_upper_case_globals)]
 pub mod srp;
 
-use super::bytes::{pad_bytes, xor, random_bytes};
-use byteorder::{ByteOrder, LittleEndian, BigEndian, WriteBytesExt};
+use super::bytes::{pad_bytes, random_bytes, xor};
+use byteorder::{BigEndian, ByteOrder, LittleEndian, WriteBytesExt};
 use crypto::aessafe;
 use crypto::cryptoutil::{write_u32_be, write_u32_le};
 use crypto::digest::Digest as CryptoDigest;
@@ -76,7 +76,7 @@ pub fn pkcs_1_unpad(input: &[u8]) -> Vec<u8> {
         i += 1;
     }
     let mut output = vec![];
-    output.extend_from_slice(&input[i+1..]);
+    output.extend_from_slice(&input[i + 1..]);
     output
 }
 
@@ -369,7 +369,14 @@ pub fn sha1_unpadded(message: &[u8]) -> Vec<u8> {
     output_bytes
 }
 
-pub fn compute_sha1_from_registers(a: u32, b: u32, c: u32, d: u32, e: u32, message: &[u8]) -> Vec<u8> {
+pub fn compute_sha1_from_registers(
+    a: u32,
+    b: u32,
+    c: u32,
+    d: u32,
+    e: u32,
+    message: &[u8],
+) -> Vec<u8> {
     let mut sha_object = Sha1::new();
     sha_object.h = [a, b, c, d, e];
 
@@ -393,7 +400,7 @@ pub fn compute_sha1_from_registers(a: u32, b: u32, c: u32, d: u32, e: u32, messa
 pub fn compute_md4_from_registers(a: u32, b: u32, c: u32, d: u32, message: &[u8]) -> Vec<u8> {
     let mut md4_object = md4::Md4::new();
     md4_object.state = md4::Md4State {
-        s: md4::simd::u32x4(a, b, c, d)
+        s: md4::simd::u32x4(a, b, c, d),
     };
 
     md4_object.input(&message[..]);
@@ -410,7 +417,7 @@ pub fn compute_md4_from_registers(a: u32, b: u32, c: u32, d: u32, message: &[u8]
 
 pub enum Endianness {
     Little,
-    Big
+    Big,
 }
 
 pub fn md_padding(input_len: usize, e: Endianness) -> Vec<u8> {
@@ -426,15 +433,9 @@ pub fn md_padding(input_len: usize, e: Endianness) -> Vec<u8> {
     padding[0] = 128;
 
     if let Endianness::Big = e {
-        BigEndian::write_u64(
-            &mut padding[diff - 8..diff],
-            input_len_bits,
-        );
+        BigEndian::write_u64(&mut padding[diff - 8..diff], input_len_bits);
     } else {
-        LittleEndian::write_u64(
-            &mut padding[diff - 8..diff],
-            input_len_bits
-        );
+        LittleEndian::write_u64(&mut padding[diff - 8..diff], input_len_bits);
     }
 
     padding

@@ -1,9 +1,8 @@
-
 #[cfg(test)]
 mod tests {
+    use byteorder::{ByteOrder, LittleEndian};
     use set_4::{secret_prefix_mac, validate_mac};
-    use byteorder::{LittleEndian, ByteOrder};
-    use utils::crypto::{keyed_md4, md_padding, compute_md4_from_registers, Endianness};
+    use utils::crypto::{compute_md4_from_registers, keyed_md4, md_padding, Endianness};
 
     #[test]
     fn challenge_30() {

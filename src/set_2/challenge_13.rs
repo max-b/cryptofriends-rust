@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use set_2::{decrypt_and_parse_profile, encrypted_profile_for, key_value_parser};
     use std::str;
-    use set_2::{encrypted_profile_for, key_value_parser, decrypt_and_parse_profile};
 
     #[test]
     fn challenge_13() {

@@ -1,6 +1,6 @@
-use utils::crypto::{ecb_encrypt};
+use super::{CONSISTENT_RANDOM_KEY, CONSISTENT_RANDOM_PREFIX};
 use utils::bytes::*;
-use super::{CONSISTENT_RANDOM_PREFIX, CONSISTENT_RANDOM_KEY};
+use utils::crypto::ecb_encrypt;
 
 pub fn challenge_14_encryption_oracle(input_plaintext: &[u8]) -> Vec<u8> {
     let append_string = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK";
@@ -22,8 +22,8 @@ pub fn challenge_14_encryption_oracle(input_plaintext: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str;
     use set_2::{find_block_size, CONSISTENT_RANDOM_PREFIX};
+    use std::str;
 
     #[test]
     fn challenge_14() {

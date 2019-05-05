@@ -1,8 +1,7 @@
-
 #[cfg(test)]
 mod tests {
     use set_4::{secret_prefix_mac, validate_mac};
-    use utils::crypto::{keyed_sha1, md_padding, compute_sha1_from_registers, Endianness};
+    use utils::crypto::{compute_sha1_from_registers, keyed_sha1, md_padding, Endianness};
 
     #[test]
     fn challenge_29() {

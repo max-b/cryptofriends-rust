@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use utils::crypto::{aes_ctr};
+    use utils::crypto::aes_ctr;
     use utils::misc::*;
 
     #[test]

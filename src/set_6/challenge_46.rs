@@ -1,6 +1,6 @@
-use utils::crypto::rsa::RSA;
-use num_traits::{One};
 use bigint::BigUint;
+use num_traits::One;
+use utils::crypto::rsa::RSA;
 
 #[derive(PartialEq)]
 pub enum Parity {
@@ -22,14 +22,15 @@ pub fn plaintext_parity(ciphertext: &BigUint, rsa: &RSA) -> Parity {
 mod tests {
     use super::*;
     use bigint::BigUint;
-    use utils::crypto::rsa::RSA;
+    use num_traits::Zero;
     use utils::bigint;
-    use num_traits::{Zero};
-    use utils::bytes::{base64_to_bytes};
+    use utils::bytes::base64_to_bytes;
+    use utils::crypto::rsa::RSA;
 
     #[test]
     fn challenge_46() {
-        let actual_plaintext = "That\'s why I found you don\'t play around with the Funky Cold Medin";
+        let actual_plaintext =
+            "That\'s why I found you don\'t play around with the Funky Cold Medin";
         let rsa = RSA::new();
         let plaintext = BigUint::from_bytes_be(&base64_to_bytes("VGhhdCdzIHdoeSBJIGZvdW5kIHlvdSBkb24ndCBwbGF5IGFyb3VuZCB3aXRoIHRoZSBGdW5reSBDb2xkIE1lZGluYQ=="));
 

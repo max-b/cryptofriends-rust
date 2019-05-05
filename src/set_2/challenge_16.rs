@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
 
-    use utils::misc::{admin_string_decrypt_and_check, admin_string_encrypt_challenge};
     use utils::crypto::{cbc_decrypt, cbc_encrypt};
+    use utils::misc::{admin_string_decrypt_and_check, admin_string_encrypt_challenge};
 
     #[test]
     fn challenge_16() {

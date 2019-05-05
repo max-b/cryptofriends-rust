@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc;
     use bigint::{BigUint, RandBigInt};
     use rand::OsRng;
     use rayon::prelude::*;
-    use utils::crypto::srp::{g, SRPServer, Message, hash_salt_password, hash_biguint, compute_hmac};
+    use std::sync::mpsc;
+    use utils::crypto::srp::{
+        compute_hmac, g, hash_biguint, hash_salt_password, Message, SRPServer,
+    };
     use utils::misc::{generate_password, generate_words, nist_prime};
 
     #[test]
@@ -22,13 +24,17 @@ mod tests {
 
         SRPServer::start(rx1);
 
-
-        tx1.send(Message::Register(email.to_vec(), password.to_vec(), tx2)).unwrap();
+        tx1.send(Message::Register(email.to_vec(), password.to_vec(), tx2))
+            .unwrap();
 
         let A = BigUint::from(g).modpow(&a, &N);
 
         let mut login_success = false;
-        tx1.send(Message::SimplifiedInitiateLogin(email[..].to_vec(), A.clone())).unwrap();
+        tx1.send(Message::SimplifiedInitiateLogin(
+            email[..].to_vec(),
+            A.clone(),
+        ))
+        .unwrap();
 
         if let Message::SimplifiedLoginResponse(salt, B, u) = rx2.recv().unwrap() {
             let x = hash_salt_password(&salt, &password[..]);
@@ -36,7 +42,11 @@ mod tests {
 
             let K = hash_biguint(&S);
 
-            tx1.send(Message::SimplifiedAttemptLogin(email.to_vec(), compute_hmac(&K, &salt))).unwrap();
+            tx1.send(Message::SimplifiedAttemptLogin(
+                email.to_vec(),
+                compute_hmac(&K, &salt),
+            ))
+            .unwrap();
 
             if let Message::LoginSuccess(success) = rx2.recv().unwrap() {
                 login_success = success
@@ -83,9 +93,7 @@ mod tests {
         // K = SHA256(S)
         let (mut lines, _) = generate_words();
 
-        let buffered_lines: Vec<String> = lines
-            .map(|l| l.expect("Could not parse line"))
-            .collect();
+        let buffered_lines: Vec<String> = lines.map(|l| l.expect("Could not parse line")).collect();
 
         let found_password = buffered_lines.par_iter().find_first(|line| {
             let word = line.as_bytes();

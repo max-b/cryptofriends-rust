@@ -44,8 +44,8 @@ mod tests {
     use bigint::BigUint;
     use std::collections::HashMap;
     use utils::crypto::dh::DHKeyPair;
-    use utils::misc::nist_prime;
     use utils::entity::{Entity, HonestEntity, Message, MiTMEntity};
+    use utils::misc::nist_prime;
 
     #[test]
     fn challenge_33() {
@@ -148,7 +148,8 @@ mod tests {
         bb9ed529077096966d670c354e4abc9804f1746c08ca237327fff\
         fffffffffffff",
             16,
-        ).unwrap();
+        )
+        .unwrap();
         let g = BigUint::from(2 as usize);
 
         let a = HonestEntity::new(0, String::from("A"));

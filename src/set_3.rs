@@ -154,7 +154,8 @@ pub fn reused_nonce_encrypt_strings(filename: &str) -> (Vec<Vec<u8>>, Vec<u8>, V
             .map(|l| {
                 let string = base64_to_bytes(&l.unwrap()[..]);
                 aes_ctr(&k[..], &string[..], &nonce[..])
-            }).collect();
+            })
+            .collect();
         (strings, nonce, k.clone())
     })
 }

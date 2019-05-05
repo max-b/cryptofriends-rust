@@ -1,6 +1,6 @@
-use utils::crypto::{ecb_encrypt};
+use super::CONSISTENT_RANDOM_KEY;
 use utils::bytes::*;
-use super::{CONSISTENT_RANDOM_KEY};
+use utils::crypto::ecb_encrypt;
 
 pub fn consistent_key_encryption_oracle(plaintext: &[u8]) -> Vec<u8> {
     let append_string = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK";
@@ -15,8 +15,8 @@ pub fn consistent_key_encryption_oracle(plaintext: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use set_2::find_block_size;
     use std::str;
-    use set_2::{find_block_size};
 
     #[test]
     fn challenge_12() {

@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use bigint::BigUint;
-    use utils::crypto::rsa::RSA;
     use utils::bigint;
+    use utils::crypto::rsa::RSA;
 
     #[test]
     fn challenge_40() {
@@ -15,7 +15,8 @@ mod tests {
                 let ciphertext = rsa.encrypt_string(&plaintext);
 
                 (ciphertext, rsa.n)
-            }).collect();
+            })
+            .collect();
 
         #[allow(non_snake_case)]
         let N: BigUint = snooped

@@ -1,11 +1,11 @@
-use std::io::BufReader;
-use std::io::prelude::*;
+use bigint::BigUint;
+use crypto::digest::Digest;
+use crypto::sha1::Sha1;
 use itertools::Itertools;
 use std::fs::File;
+use std::io::prelude::*;
+use std::io::BufReader;
 use std::path::PathBuf;
-use crypto::sha1::Sha1;
-use crypto::digest::Digest;
-use bigint::BigUint;
 use utils::crypto::dsa::DsaSignature;
 
 pub fn parse_messages_and_signatures(path: &PathBuf) -> Vec<DsaSignature> {
@@ -61,14 +61,14 @@ pub fn parse_messages_and_signatures(path: &PathBuf) -> Vec<DsaSignature> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
-    use num_traits::ops::checked::CheckedSub;
     use bigint::BigUint;
-    use crypto::sha1::Sha1;
     use crypto::digest::Digest;
+    use crypto::sha1::Sha1;
+    use num_traits::ops::checked::CheckedSub;
+    use set_6::recover_dsa_private_key_from_signing_key;
+    use std::path::PathBuf;
     use utils::bigint;
     use utils::crypto::dsa::{Dsa, DsaParams};
-    use set_6::recover_dsa_private_key_from_signing_key;
 
     #[test]
     fn challenge_44() {
@@ -80,7 +80,8 @@ mod tests {
                 f98a6a4d83d8279ee65d71c1203d2c96d65ebbf7cce9d3\
                 2971c3de5084cce04a2e147821",
             16,
-        ).unwrap();
+        )
+        .unwrap();
 
         let mut messages_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         messages_path.push("data");
@@ -102,7 +103,8 @@ mod tests {
                     && (&v[0].s % &params.q) >= (&v[1].s % &params.q))
                     || ((&v[1].message_hash % &params.q) >= (&v[0].message_hash % &params.q)
                         && (&v[1].s % &params.q) >= (&v[0].s % &params.q))
-            }).for_each(|v| {
+            })
+            .for_each(|v| {
                 let (a, b) = match (&v[0].message_hash % &params.q)
                     .checked_sub(&(&v[1].message_hash % &params.q))
                 {
@@ -111,8 +113,10 @@ mod tests {
                 };
 
                 let top = (&a.message_hash % &params.q) - (&b.message_hash % &params.q);
-                let (_, inv_bottom) =
-                    bigint::euclidean_algorithm(&params.q, &((&a.s % &params.q) - (&b.s % &params.q)));
+                let (_, inv_bottom) = bigint::euclidean_algorithm(
+                    &params.q,
+                    &((&a.s % &params.q) - (&b.s % &params.q)),
+                );
 
                 let k = (top * inv_bottom) % &params.q;
 

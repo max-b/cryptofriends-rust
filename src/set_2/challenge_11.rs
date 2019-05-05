@@ -1,7 +1,6 @@
 use rand::{OsRng, Rng};
-use utils::crypto::{cbc_encrypt, ecb_encrypt};
 use utils::bytes::*;
-
+use utils::crypto::{cbc_encrypt, ecb_encrypt};
 
 #[derive(Debug, PartialEq)]
 pub enum EncryptionType {

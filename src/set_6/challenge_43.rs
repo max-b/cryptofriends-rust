@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use rand::OsRng;
+    use bigint::{BigUint, RandBigInt};
     use crypto::digest::Digest;
     use crypto::sha1::Sha1;
-    use bigint::{BigUint, RandBigInt};
     use num_traits::{FromPrimitive, One, Zero};
+    use rand::OsRng;
     use set_6::recover_dsa_private_key_from_signing_key;
     use utils::crypto::dsa::{Dsa, DsaParams, DsaSignature};
 
@@ -43,7 +43,8 @@ mod tests {
         1dec568280ce678e931868d23eb095fde9d3779191b8c0299d6e07b\
         bb283e6633451e535c45513b2d33c99ea17",
             16,
-        ).unwrap();
+        )
+        .unwrap();
 
         let message = b"For those that envy a MC it can be hazardous to your health
 So be friendly, a matter of life and death, just like a etch-a-sketch\n";

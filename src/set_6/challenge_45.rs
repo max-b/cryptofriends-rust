@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
     use bigint::{BigUint, RandBigInt};
-    use rand::OsRng;
-    use utils::crypto::dsa::{Dsa, DsaParams, DsaSignature};
-    use num_traits::{One, Zero};
     use crypto::digest::Digest;
     use crypto::sha1::Sha1;
+    use num_traits::{One, Zero};
+    use rand::OsRng;
+    use utils::crypto::dsa::{Dsa, DsaParams, DsaSignature};
 
     #[test]
     fn challenge_45() {

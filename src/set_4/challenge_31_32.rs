@@ -9,7 +9,6 @@ use std::time::Duration;
 use url::Url;
 use utils::bytes::*;
 
-
 fn check_signature(valid: &[u8], test: &[u8]) -> bool {
     let sleep_time = Duration::new(0, 5000000);
 
@@ -85,7 +84,6 @@ pub fn start_web_server() {
     run(server);
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,8 +113,10 @@ mod tests {
                         "http://localhost:3000?file={}&signature={}",
                         filename,
                         &test_signature[..]
-                    ).as_str(),
-                ).send()
+                    )
+                    .as_str(),
+                )
+                .send()
                 .expect("Can't send");
 
             if let reqwest::StatusCode::BadRequest = resp.status() {
@@ -142,8 +142,10 @@ mod tests {
                                 "http://localhost:3000?file={}&signature={}",
                                 filename,
                                 &test_signature[..]
-                            ).as_str(),
-                        ).send()
+                            )
+                            .as_str(),
+                        )
+                        .send()
                         .expect("Can't send");
 
                     match resp.status() {

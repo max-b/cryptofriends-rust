@@ -1,8 +1,8 @@
-use bigint::{BigUint};
-use num_traits::One;
-use openssl::bn::{BigNum};
-use std::{cmp, ops};
+use bigint::BigUint;
 use num_traits::pow;
+use num_traits::One;
+use openssl::bn::BigNum;
+use std::{cmp, ops};
 
 pub fn bignum_to_biguint(bignum: &BigNum) -> BigUint {
     BigUint::from_bytes_be(&bignum.to_vec())
@@ -135,7 +135,6 @@ pub fn bignum_to_string(num: &BigNum) -> String {
 mod tests {
     use super::*;
     #[test]
-
     #[test]
     fn test_div_alg() {
         assert_eq!(division_algorithm(&10u32, &3u32), (3, 1));
@@ -189,4 +188,3 @@ mod tests {
         assert_eq!(bignum_to_biguint(&bignum), BigUint::from(123456789 as u32));
     }
 }
-

@@ -1,8 +1,8 @@
-use std::cmp;
 use bigint::BigUint;
-use num_traits::{One, pow};
+use num_traits::{pow, One};
+use std::cmp;
+use utils::crypto::pkcs_1_pad;
 use utils::crypto::rsa::RSA;
-use utils::crypto::{pkcs_1_pad};
 
 #[derive(Debug)]
 pub struct Range {
@@ -22,17 +22,25 @@ pub fn bleichenbacher_oracle(ciphertext: &BigUint, rsa: &RSA) -> bool {
     while decrypt_bytes.len() < k {
         decrypt_bytes.insert(0, 0);
     }
-    
+
     decrypt_bytes[0] == 0 && decrypt_bytes[1] == 2
 }
 
 #[allow(non_snake_case)]
-pub fn bleichenbacher_step_2(i: usize, c0: &BigUint, s: &mut Vec<BigUint>, M: &Vec<Vec<Range>>, B: &BigUint, rsa: &RSA, _m: &BigUint) {
+pub fn bleichenbacher_step_2(
+    i: usize,
+    c0: &BigUint,
+    s: &mut Vec<BigUint>,
+    M: &Vec<Vec<Range>>,
+    B: &BigUint,
+    rsa: &RSA,
+    _m: &BigUint,
+) {
     let one = BigUint::one();
     let two = BigUint::from(2 as u32);
     let three = BigUint::from(3 as u32);
 
-    if i == 1  || M[i - 1].len() > 1 {
+    if i == 1 || M[i - 1].len() > 1 {
         // search for smallest s >= n/3B such that c0(s[i]^e) % n is pkcs conforming
         let mut s_new = ceil_div(&rsa.n, &(&three * B));
 
@@ -52,7 +60,7 @@ pub fn bleichenbacher_step_2(i: usize, c0: &BigUint, s: &mut Vec<BigUint>, M: &V
         s.push(s_new)
     } else {
         println!("STEP 2c");
-        // search for s[i] r[i] such that 
+        // search for s[i] r[i] such that
         // r[i] >= (2 * (b*s[i - 1] - 2B)) / n
         // s[i] >= (2B + r[i]*n) / b && s[i] < (2B + r[i]*n)  a
         let a = &M[i - 1][0].min.clone();
@@ -104,21 +112,17 @@ pub fn solve_bleichenbacher(rsa: &RSA, plaintext_bytes: &[u8]) -> Vec<u8> {
     let c0 = ciphertext.clone();
 
     #[allow(non_snake_case)]
-    let mut M = vec![
-        vec![
-            Range { 
-                min: &two * &B,
-                max: (&three * &B) - &one,
-            }
-        ]
-    ];
+    let mut M = vec![vec![Range {
+        min: &two * &B,
+        max: (&three * &B) - &one,
+    }]];
 
     let mut found = false;
     let mut i: usize = 0;
 
     while !found {
         i = i + 1;
-        
+
         bleichenbacher_step_2(i, &c0, &mut s, &M, &B, &rsa, &plaintext_num);
 
         // Step 3
@@ -134,15 +138,12 @@ pub fn solve_bleichenbacher(rsa: &RSA, plaintext_bytes: &[u8]) -> Vec<u8> {
 
             let mut r = r_min.clone();
             while r <= r_max {
-
-                let new_min = cmp::max(
-                    a.clone(), 
-                    ceil_div(&(&(&two * &B) + &(&r * &rsa.n)), &s[i])
-                );
+                let new_min =
+                    cmp::max(a.clone(), ceil_div(&(&(&two * &B) + &(&r * &rsa.n)), &s[i]));
 
                 let new_max = cmp::min(
                     b.clone(),
-                    &(&(&(&three * &B) - &one) + &(&r * &rsa.n)) / &s[i]
+                    &(&(&(&three * &B) - &one) + &(&r * &rsa.n)) / &s[i],
                 );
 
                 let mut contains = false;
@@ -155,11 +156,11 @@ pub fn solve_bleichenbacher(rsa: &RSA, plaintext_bytes: &[u8]) -> Vec<u8> {
                     contains = contains || range.contains(&new_range);
                 }
 
-                if !contains && 
-                    new_range.min <= new_range.max &&
-                    new_range.min >= &two * &B &&
-                    new_range.max <= &three * &B {
-
+                if !contains
+                    && new_range.min <= new_range.max
+                    && new_range.min >= &two * &B
+                    && new_range.max <= &three * &B
+                {
                     m_new.push(new_range);
                 }
 
@@ -185,11 +186,10 @@ pub fn solve_bleichenbacher(rsa: &RSA, plaintext_bytes: &[u8]) -> Vec<u8> {
     output
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::{pkcs_1_unpad};
+    use utils::crypto::pkcs_1_unpad;
     use utils::crypto::rsa::RSA;
 
     #[test]

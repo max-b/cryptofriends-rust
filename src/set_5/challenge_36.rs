@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc;
     use bigint::{BigUint, RandBigInt};
     use rand::OsRng;
-    use utils::crypto::srp::{g, k, SRPServer, Message, hash_concat, hash_salt_password, hash_biguint, compute_hmac};
+    use std::sync::mpsc;
+    use utils::crypto::srp::{
+        compute_hmac, g, hash_biguint, hash_concat, hash_salt_password, k, Message, SRPServer,
+    };
     use utils::misc::nist_prime;
 
     #[test]
@@ -22,23 +24,30 @@ mod tests {
 
         SRPServer::start(rx1);
 
-        tx1.send(Message::Register(email.to_vec(), password.to_vec(), tx2)).unwrap();
+        tx1.send(Message::Register(email.to_vec(), password.to_vec(), tx2))
+            .unwrap();
 
         let A = BigUint::from(g).modpow(&a, &N);
 
-        tx1.send(Message::InitiateLogin(email[..].to_vec(), A.clone())).unwrap();
+        tx1.send(Message::InitiateLogin(email[..].to_vec(), A.clone()))
+            .unwrap();
 
         if let Message::LoginResponse(salt, B) = rx2.recv().unwrap() {
-            let uh = hash_concat(&A, &B); 
+            let uh = hash_concat(&A, &B);
 
             let x = hash_salt_password(&salt, &password[..]);
 
             // TODO: Ensure that B is larger than subtracted value here...
-            let S = (B - ((k * BigUint::from(g).modpow(&x, &N)) % &N)).modpow(&(&(&a + (&uh * &x) % &N) % &N), &N);
+            let S = (B - ((k * BigUint::from(g).modpow(&x, &N)) % &N))
+                .modpow(&(&(&a + (&uh * &x) % &N) % &N), &N);
 
             let K = hash_biguint(&S);
 
-            tx1.send(Message::AttemptLogin(email.to_vec(), compute_hmac(&K, &salt))).unwrap();
+            tx1.send(Message::AttemptLogin(
+                email.to_vec(),
+                compute_hmac(&K, &salt),
+            ))
+            .unwrap();
 
             if let Message::LoginSuccess(success) = rx2.recv().unwrap() {
                 login_success = success

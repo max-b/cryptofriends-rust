@@ -1,7 +1,7 @@
 use bigint::{BigUint, RandBigInt};
-use rand::OsRng;
-use crypto::sha1::Sha1;
 use crypto::digest::Digest;
+use crypto::sha1::Sha1;
+use rand::OsRng;
 
 pub struct DHKeyPair {
     pub private_key: BigUint,
@@ -49,4 +49,3 @@ impl DHKeyPair {
         output_bytes
     }
 }
-

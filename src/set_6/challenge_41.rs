@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use bigint::{BigUint};
-    use utils::crypto::rsa::{RSA};
+    use bigint::BigUint;
     use utils::bigint::{biguint_to_string, euclidean_algorithm};
+    use utils::crypto::rsa::RSA;
 
     #[test]
     fn challenge_41() {

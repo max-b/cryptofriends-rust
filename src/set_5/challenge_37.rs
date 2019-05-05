@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc;
-    use bigint::{BigUint};
+    use bigint::BigUint;
     use num_traits::Pow;
-    use utils::crypto::srp::{SRPServer, Message, hash_biguint, compute_hmac};
+    use std::sync::mpsc;
+    use utils::crypto::srp::{compute_hmac, hash_biguint, Message, SRPServer};
     use utils::misc::nist_prime;
 
     #[test]
@@ -18,20 +18,25 @@ mod tests {
 
         SRPServer::start(rx1);
 
-
-        tx1.send(Message::Register(email.to_vec(), password.to_vec(), tx2)).unwrap();
+        tx1.send(Message::Register(email.to_vec(), password.to_vec(), tx2))
+            .unwrap();
 
         let A = BigUint::from(0 as u32);
 
         let mut login_success = false;
-        tx1.send(Message::InitiateLogin(email[..].to_vec(), A.clone())).unwrap();
+        tx1.send(Message::InitiateLogin(email[..].to_vec(), A.clone()))
+            .unwrap();
 
         if let Message::LoginResponse(salt, _B) = rx2.recv().unwrap() {
             let S = BigUint::from(0 as u32);
 
             let K = hash_biguint(&S);
 
-            tx1.send(Message::AttemptLogin(email.to_vec(), compute_hmac(&K, &salt))).unwrap();
+            tx1.send(Message::AttemptLogin(
+                email.to_vec(),
+                compute_hmac(&K, &salt),
+            ))
+            .unwrap();
 
             if let Message::LoginSuccess(success) = rx2.recv().unwrap() {
                 login_success = success
@@ -43,14 +48,19 @@ mod tests {
         login_success = false;
 
         let A = N.clone();
-        tx1.send(Message::InitiateLogin(email[..].to_vec(), A.clone())).unwrap();
+        tx1.send(Message::InitiateLogin(email[..].to_vec(), A.clone()))
+            .unwrap();
 
         if let Message::LoginResponse(salt, _B) = rx2.recv().unwrap() {
             let S = BigUint::from(0 as u32);
 
             let K = hash_biguint(&S);
 
-            tx1.send(Message::AttemptLogin(email.to_vec(), compute_hmac(&K, &salt))).unwrap();
+            tx1.send(Message::AttemptLogin(
+                email.to_vec(),
+                compute_hmac(&K, &salt),
+            ))
+            .unwrap();
 
             if let Message::LoginSuccess(success) = rx2.recv().unwrap() {
                 login_success = success
@@ -62,14 +72,19 @@ mod tests {
         login_success = false;
 
         let A: BigUint = N.pow(2 as u32);
-        tx1.send(Message::InitiateLogin(email[..].to_vec(), A.clone())).unwrap();
+        tx1.send(Message::InitiateLogin(email[..].to_vec(), A.clone()))
+            .unwrap();
 
         if let Message::LoginResponse(salt, _B) = rx2.recv().unwrap() {
             let S = BigUint::from(0 as u32);
 
             let K = hash_biguint(&S);
 
-            tx1.send(Message::AttemptLogin(email.to_vec(), compute_hmac(&K, &salt))).unwrap();
+            tx1.send(Message::AttemptLogin(
+                email.to_vec(),
+                compute_hmac(&K, &salt),
+            ))
+            .unwrap();
 
             if let Message::LoginSuccess(success) = rx2.recv().unwrap() {
                 login_success = success

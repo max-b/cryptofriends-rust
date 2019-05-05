@@ -1,15 +1,15 @@
+pub mod bleichenbacher;
 pub mod challenge_41;
 pub mod challenge_42;
 pub mod challenge_43;
 pub mod challenge_44;
 pub mod challenge_45;
 pub mod challenge_46;
-pub mod bleichenbacher;
 
 use bigint::BigUint;
 use num_traits::ops::checked::CheckedSub;
-use utils::crypto::dsa::{DsaParams, DsaSignature};
 use utils::bigint;
+use utils::crypto::dsa::{DsaParams, DsaSignature};
 
 pub fn recover_dsa_private_key_from_signing_key(
     params: &DsaParams,

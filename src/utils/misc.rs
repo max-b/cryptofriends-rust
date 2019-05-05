@@ -1,15 +1,15 @@
 use super::bytes::{generate_random_aes_key, hex_to_bytes, single_xor, xor};
+use bigint::BigUint;
 use itertools::Itertools;
+use rand::{OsRng, Rng};
 use std::collections::HashMap;
 use std::f64;
-use std::io::{Error, ErrorKind};
-use std::str;
-use bigint::BigUint;
-use rand::{OsRng, Rng};
 use std::fs;
 use std::io::prelude::*;
-use std::io::{Lines, BufReader};
+use std::io::{BufReader, Lines};
+use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
+use std::str;
 
 fn get_chi_squared(buf: &[u8]) -> f64 {
     let english_freq = vec![
@@ -212,7 +212,8 @@ pub fn nist_prime() -> BigUint {
     24117c4b1fe649286651ece45b3dc2007cb8a163bf0598da48361\
     c55d39a69163fa8fd24cf5f83655d23dca3ad961c62f356208552\
     bb9ed529077096966d670c354e4abc9804f1746c08ca237327fff\
-    fffffffffffff")
+    fffffffffffff",
+    )
 }
 
 pub fn generate_words() -> (Lines<BufReader<fs::File>>, usize) {

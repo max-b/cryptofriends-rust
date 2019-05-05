@@ -1,11 +1,9 @@
-use utils::crypto::{cbc_decrypt};
 use utils::bytes::*;
+use utils::crypto::cbc_decrypt;
 
 thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = generate_random_aes_key());
 
-pub fn ascii_compliance(
-    ciphertext: &[u8], 
-) -> Vec<u8> {
+pub fn ascii_compliance(ciphertext: &[u8]) -> Vec<u8> {
     let mut plaintext = Vec::new();
 
     CONSISTENT_RANDOM_KEY.with(|k| {
@@ -18,8 +16,8 @@ pub fn ascii_compliance(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::{cbc_encrypt};
     use utils::bytes::xor;
+    use utils::crypto::cbc_encrypt;
 
     #[test]
     fn challenge_27() {
@@ -47,4 +45,3 @@ mod tests {
         });
     }
 }
-

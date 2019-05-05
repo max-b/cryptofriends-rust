@@ -115,7 +115,7 @@ pub fn find_block_size(oracle: &Fn(&[u8]) -> Vec<u8>) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::{cbc_encrypt};
+    use utils::crypto::cbc_encrypt;
 
     #[test]
     fn challenge_9() {
@@ -134,11 +134,9 @@ mod tests {
 
         // TODO: Do I want to copy the full text from the set_1 tests?
         // or maybe refactor all the challenge tests entirely?
-        assert!(
-            cbc_decrypted
-                .as_str()
-                .contains("Play that funky music white boy you say it,")
-        );
+        assert!(cbc_decrypted
+            .as_str()
+            .contains("Play that funky music white boy you say it,"));
     }
 
     #[test]

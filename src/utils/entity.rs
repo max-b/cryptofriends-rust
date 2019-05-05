@@ -5,8 +5,8 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 use utils::bytes::generate_random_aes_key;
-use utils::crypto::{cbc_decrypt, cbc_encrypt};
 use utils::crypto::dh::DHKeyPair;
+use utils::crypto::{cbc_decrypt, cbc_encrypt};
 
 #[derive(Debug)]
 pub enum Message {

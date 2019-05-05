@@ -231,7 +231,8 @@ Play that funky music white boy you say it, say it
 Play that funky music A little louder now
 Play that funky music, white boy Come on, Come on, Come on
 Play that funky music",
-            ).replace("\n", "")
+            )
+            .replace("\n", "")
             .replace(" ", "");
 
             Self {

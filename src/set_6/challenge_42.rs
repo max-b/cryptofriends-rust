@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use bigint::BigUint;
-    use utils::bigint;
     use num_traits::pow;
+    use utils::bigint;
 
     #[test]
     fn challenge_42() {

@@ -14,15 +14,15 @@ extern crate byteorder;
 extern crate crypto;
 extern crate hyper;
 extern crate itertools;
+extern crate md4;
 extern crate num_bigint as bigint;
 extern crate num_integer;
 extern crate num_traits;
 extern crate openssl;
 extern crate rand;
+extern crate rayon;
 extern crate reqwest;
 extern crate url;
-extern crate md4;
-extern crate rayon;
 
 pub mod utils;
 

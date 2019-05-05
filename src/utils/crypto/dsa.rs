@@ -42,7 +42,8 @@ impl DsaParams {
         b4deb50aa18ee9e132bfa85ac4374d7f9091abc3d015efc87\
         1a584471bb1",
             16,
-        ).unwrap();
+        )
+        .unwrap();
 
         let q = BigUint::parse_bytes(b"f4f47f05794b256174bba6e9b396a7707e563c5b", 16).unwrap();
 
@@ -54,7 +55,8 @@ impl DsaParams {
         878480e99041be601a62166ca6894bdd41a7054ec89f756ba\
         9fc95302291",
             16,
-        ).unwrap();
+        )
+        .unwrap();
 
         DsaParams { p, q, g }
     }

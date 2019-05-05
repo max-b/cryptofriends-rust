@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-use utils::crypto::{aes_ctr, ecb_decrypt};
 use utils::bytes::*;
+use utils::crypto::{aes_ctr, ecb_decrypt};
 use utils::files::read_base64_file_as_bytes;
 
 thread_local!(static CONSISTENT_RANDOM_KEY: Vec<u8> = generate_random_aes_key());
@@ -26,11 +26,10 @@ pub fn challenge_25_encrypt() -> (Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
     })
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::crypto::{edit_aes_ctr};
+    use utils::crypto::edit_aes_ctr;
 
     #[test]
     fn challenge_25() {
